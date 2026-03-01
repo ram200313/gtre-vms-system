@@ -3,5 +3,5 @@ fastapi[all]
 uvicorn
 pydantic
 python-multipart
-cx_Oracle
+oracledb
 opencv-contrib-python-headless

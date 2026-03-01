@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import json
-import cx_Oracle
+import oracledb
 from fastapi.staticfiles import StaticFiles
 import cv2
 import numpy as np
@@ -35,8 +35,9 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 def get_db_connection():
     try:
         # In a real environment, this connects to the offline Oracle DB.
-        # Ensure Oracle Instant Client is installed if running locally.
-        connection = cx_Oracle.connect(user=DB_USER, password=DB_PASSWORD, dsn=DB_DSN)
+        # Ensure Oracle Instant Client is installed if running locally,
+        # or it will use the default "Thin" mode without native binaries on the cloud.
+        connection = oracledb.connect(user=DB_USER, password=DB_PASSWORD, dsn=DB_DSN)
         return connection
     except Exception as e:
         print(f"Database connection error: {e}")

@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTRE VMS SYSTEM - Quick Attendance</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .scanner-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        .camera-feed {
+            flex: 1;
+            background: #111827;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            position: relative;
+            min-height: 480px;
+            box-shadow: var(--shadow-md);
+            border: 2px solid var(--border-color);
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .scan-box {
+            width: 250px;
+            height: 250px;
+            border: 2px solid rgba(16, 185, 129, 0.5);
+            /* Success green, slightly transparent */
+            border-radius: 20px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+            /* Darkens everything outside the box */
+            position: relative;
+        }
+
+        .scan-box::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: scanLine 2s infinite linear;
+            display: none;
+        }
+
+        .scanning .scan-box::after {
+            display: block;
+        }
+
+        @keyframes scanLine {
+            0% {
+                top: 0;
+            }
+
+            50% {
+                top: 100%;
+            }
+
+            100% {
+                top: 0;
+            }
+        }
+
+        .result-panel {
+            width: 350px;
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            border-top: 4px solid var(--primary-blue);
+        }
+
+        .result-panel.success {
+            border-top-color: var(--success);
+        }
+
+        .result-panel.error {
+            border-top-color: var(--danger);
+        }
+
+        .profile-pic {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 16px;
+            display: block;
+            background: #eee;
+            border: 3px solid white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-label {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            color: var(--text-main);
+            font-weight: 500;
+            text-align: right;
+        }
+    </style>
+    <script src="js/auth.js"></script>
+</head>
+
+<body>
+    <div class="layout-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h2>VMS SYSTEM</h2>
+                <span class="badge offline">OFFLINE MODE</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-gauge"></i> Dashboard
+                </a>
+                <a href="new_visitor.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i> New Visitor Entry
+                </a>
+                <a href="todays_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-users"></i> Today's Visitors
+                </a>
+                <a href="attendance.html" class="nav-item active">
+                    <i class="fa-solid fa-camera-retro"></i> Regular Attendance
+                </a>
+                <a href="gate_scanners.html" class="nav-item">
+                    <i class="fa-solid fa-door-open"></i> Gate Scanners
+                </a>
+                <a href="admin_dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-clipboard-check"></i> Admin Approvals
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Fast-Track Attendance (Regulars)</h1>
+
+                    <button onclick="systemLogout()" class="btn btn-secondary" style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                        <i class="fa-solid fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <div class="card-section">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div>
+                            <h3 class="section-title" style="margin: 0;"><i class="fa-solid fa-face-viewfinder"></i>
+                                Facial Recognition Scanner</h3>
+                            <p style="color: var(--text-muted); margin-top: 5px; font-size: 14px;">Look directly into
+                                the camera to log attendance instantly.</p>
+                        </div>
+                        <button class="btn btn-primary" id="btnScanPass" onclick="captureAndRecognize()">
+                            <i class="fa-solid fa-expand"></i> Scan Now
+                        </button>
+                    </div>
+
+                    <div class="scanner-container" style="margin-bottom: 30px;">
+                        <div class="camera-feed" id="cameraFeed">
+                            <video id="video" autoplay playsinline></video>
+                            <div class="scan-overlay">
+                                <div class="scan-box"></div>
+                            </div>
+                            <canvas id="canvas" style="display: none;"></canvas>
+                        </div>
+
+                        <!-- Scan Result Panel -->
+                        <div class="result-panel" id="resultPanel">
+                            <div id="idleState" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                                <i class="fa-solid fa-id-card-clip"
+                                    style="font-size: 48px; margin-bottom: 16px; color: #d1d5db;"></i>
+                                <h3>Waiting for Scan...</h3>
+                                <p style="font-size: 14px;">Stand in front of the camera and press 'Scan Now' to mark
+                                    attendance.</p>
+                            </div>
+
+                            <div id="loadingState" class="hidden" style="text-align: center; padding: 40px 0;">
+                                <i class="fa-solid fa-circle-notch fa-spin"
+                                    style="font-size: 40px; color: var(--primary-blue); margin-bottom: 15px;"></i>
+                                <h3>Analyzing Face...</h3>
+                                <p style="color: var(--text-muted); font-size: 14px;">Matching local embeddings...</p>
+                            </div>
+
+                            <div id="successState" class="hidden">
+                                <div style="text-align: center; margin-bottom: 20px;">
+                                    <i class="fa-solid fa-circle-check"
+                                        style="color: var(--success); font-size: 48px; margin-bottom: 10px;"></i>
+                                    <h3 style="color: var(--success); margin: 0;">Attendance Logged</h3>
+                                </div>
+
+                                <img src="" id="recognizedPhoto" class="profile-pic" alt="Captured Face">
+
+                                <div class="info-row">
+                                    <span class="info-label">Name</span>
+                                    <span class="info-value" id="recName">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">ID Number</span>
+                                    <span class="info-value" id="recId">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Role</span>
+                                    <span class="info-value" id="recRole">--</span>
+                                </div>
+                                <div class="info-row" style="border-bottom: none;">
+                                    <span class="info-label">Match Conf.</span>
+                                    <span class="info-value" id="recConf" style="color: var(--success);">--</span>
+                                </div>
+                            </div>
+
+                            <div id="errorState" class="hidden" style="text-align: center; padding: 40px 0;">
+                                <i class="fa-solid fa-circle-xmark"
+                                    style="font-size: 48px; color: var(--danger); margin-bottom: 15px;"></i>
+                                <h3 style="color: var(--danger); margin: 0 0 10px 0;">Access Denied</h3>
+                                <p id="errorMsg" style="color: var(--text-muted); font-size: 14px;">Face not recognized
+                                    in database. Please register at front desk.</p>
+                                <button class="btn btn-secondary btn-block mt-3" onclick="resetScanner()">Try
+                                    Again</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attendance Logs Table -->
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 class="section-title" style="margin: 0;"><i class="fa-solid fa-list"></i> Today's Attendance
+                            Logs</h3>
+                        <button class="btn btn-secondary" onclick="exportAttendanceCSV()"><i
+                                class="fa-solid fa-file-csv"></i> Export Logs</button>
+                    </div>
+                    <div
+                        style="background: white; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); overflow: hidden;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="background: #F9FAFB; border-bottom: 1px solid var(--border-color);">
+                                <tr>
+                                    <th
+                                        style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">
+                                        ID</th>
+                                    <th
+                                        style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">
+                                        Name</th>
+                                    <th
+                                        style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">
+                                        Date</th>
+                                    <th
+                                        style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">
+                                        Entry Time</th>
+                                    <th
+                                        style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">
+                                        Exit Time</th>
+                                    <th
+                                        style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">
+                                        Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                <!-- Populated dynamically -->
+                                <tr>
+                                    <td colspan="6"
+                                        style="padding: 20px; text-align: center; color: var(--text-muted);">Loading
+                                        logs...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const cameraFeed = document.getElementById('cameraFeed');
+        const resultPanel = document.getElementById('resultPanel');
+
+        // UI states
+        const idleState = document.getElementById('idleState');
+        const loadingState = document.getElementById('loadingState');
+        const successState = document.getElementById('successState');
+        const errorState = document.getElementById('errorState');
+
+        // Startup Camera
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Camera access denied!", err);
+                alert("Camera access is required for attendance scans.");
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', startCamera);
+
+        function showState(stateElement) {
+            [idleState, loadingState, successState, errorState].forEach(el => el.classList.add('hidden'));
+            stateElement.classList.remove('hidden');
+            resultPanel.className = 'result-panel'; // Reset border color
+            cameraFeed.classList.remove('scanning');
+        }
+
+        function resetScanner() {
+            showState(idleState);
+        }
+
+        async function captureAndRecognize() {
+            // UI Update
+            showState(loadingState);
+            cameraFeed.classList.add('scanning');
+            document.getElementById('btnScanPass').disabled = true;
+
+            // Capture Frame
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const base64Photo = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Set photo preview instantly
+            document.getElementById('recognizedPhoto').src = base64Photo;
+
+            // Send to recognizer
+            try {
+                const res = await fetch('/api/visitors/recognize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ photoBase64: base64Photo })
+                });
+
+                const data = await res.json();
+
+                // Add minor artificial delay for UI "scanning" effect
+                await new Promise(r => setTimeout(r, 1500));
+
+                if (res.ok && data.status === 'success') {
+                    // Populate success UI
+                    document.getElementById('recName').textContent = data.data.fullName;
+                    document.getElementById('recId').textContent = data.data.id;
+                    document.getElementById('recRole').textContent = data.data.role;
+                    document.getElementById('recConf').textContent = (data.matchConfidence * 100).toFixed(1) + "%";
+
+                    showState(successState);
+                    resultPanel.classList.add('success');
+                } else {
+                    document.getElementById('errorMsg').textContent = data.detail || "Face not found in active records.";
+                    showState(errorState);
+                    resultPanel.classList.add('error');
+                }
+            } catch (err) {
+                console.error("Network error during recognition:", err);
+                await new Promise(r => setTimeout(r, 1500));
+                document.getElementById('errorMsg').textContent = "Connection to Verification Server lost. Cannot recognize face offline.";
+                showState(errorState);
+                resultPanel.classList.add('error');
+            } finally {
+                cameraFeed.classList.remove('scanning');
+                document.getElementById('btnScanPass').disabled = false;
+
+                // Auto-reset after 5 seconds if successful
+                if (!successState.classList.contains('hidden')) {
+                    setTimeout(resetScanner, 5000);
+                }
+            }
+        } // Added missing brace closing captureAndRecognize
+
+        let logsCache = [];
+
+        async function fetchAttendanceLogs() {
+            try {
+                const res = await fetch('/api/attendance');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    logsCache = data.data;
+                    renderLogsTable(data.data);
+                }
+            } catch (e) {
+                console.error("Could not fetch logs", e);
+            }
+        }
+
+        function renderLogsTable(logs) {
+            const tbody = document.getElementById('attendanceTableBody');
+            tbody.innerHTML = '';
+
+            if (logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No attendance recorded yet today.</td></tr>`;
+                return;
+            }
+
+            // Reverse to show newest first
+            const sorted = [...logs].reverse();
+
+            sorted.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border-color)';
+                const statusBadge = log.exitTime
+                    ? `<span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: rgba(245, 158, 11, 0.1); color: var(--warning);">EXITED</span>`
+                    : `<span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: var(--success);">ON CAMPUS</span>`;
+
+                tr.innerHTML = `
+                    <td style="padding: 12px 16px; font-weight: 500;">VIS-${log.visitorId}</td>
+                    <td style="padding: 12px 16px;">${log.fullName}</td>
+                    <td style="padding: 12px 16px;">${log.date}</td>
+                    <td style="padding: 12px 16px;">${log.entryTime.split(' ')[1]}</td>
+                    <td style="padding: 12px 16px; color: ${log.exitTime ? 'inherit' : 'var(--text-muted)'}">${log.exitTime ? log.exitTime.split(' ')[1] : '--:--:--'}</td>
+                    <td style="padding: 12px 16px;">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function exportAttendanceCSV() {
+            if (logsCache.length === 0) {
+                alert("No logs to export.");
+                return;
+            }
+            const headers = ["ID", "Visitor ID", "Name", "Date", "Entry Time", "Exit Time", "Status"];
+            const rows = logsCache.map(l => [
+                l.id,
+                l.visitorId,
+                `"${l.fullName}"`,
+                l.date,
+                l.entryTime,
+                l.exitTime || "Currently Inside",
+                l.exitTime ? "EXITED" : "ON CAMPUS"
+            ]);
+            let csvContent = headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.setAttribute("href", url);
+            a.setAttribute("download", `Attendance_Logs_${new Date().toISOString().split('T')[0]}.csv`);
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAttendanceLogs();
+        });
+
+        // Trigger table refresh locally after scan
+        const originalCapture = captureAndRecognize;
+        captureAndRecognize = async function () {
+            await originalCapture();
+            fetchAttendanceLogs();
+        }
+    </script>
+</body>
+
+</html>

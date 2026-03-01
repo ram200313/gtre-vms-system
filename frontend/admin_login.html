@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTRE VMS SYSTEM - Admin Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: var(--light-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-image: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border-top: 6px solid var(--primary-blue);
+        }
+
+        .login-header h2 {
+            color: var(--text-main);
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+
+        .login-header p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-main);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .error-message {
+            color: var(--danger);
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: none;
+            padding: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 6px;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-container">
+        <div class="login-header">
+            <i class="fa-solid fa-shield-halved"
+                style="font-size: 40px; color: var(--primary-blue); margin-bottom: 15px;"></i>
+            <h2>Admin Portal Login</h2>
+            <p>Enter your credentials to access the secure dashboard.</p>
+        </div>
+
+        <div id="errorMsg" class="error-message">Invalid username or password.</div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Administrator ID</label>
+                <input type="text" id="username" required placeholder="e.g. admin" autocomplete="username">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Security Password</label>
+                <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-login">
+                <i class="fa-solid fa-right-to-bracket"></i> Authenticate
+            </button>
+        </form>
+
+        <a href="new_visitor.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Return to Front Desk</a>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = e.target.querySelector('button');
+            const errorMsg = document.getElementById('errorMsg');
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...`;
+            errorMsg.classList.remove('active');
+
+            const payload = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            };
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        // Store mock token securely in session storage
+                        sessionStorage.setItem('adminToken', data.token);
+                        sessionStorage.setItem('adminRole', data.role);
+
+                        // Redirect to the dashboard
+                        window.location.href = 'admin_dashboard.html';
+                    }
+                } else {
+                    errorMsg.textContent = "Invalid Administrator ID or Security Password.";
+                    errorMsg.classList.add('active');
+                }
+            } catch (err) {
+                console.error(err);
+                // Offline fallback mock evaluation
+                if (payload.username === "admin" && payload.password === "GTRE123") {
+                    sessionStorage.setItem('adminToken', "mock-offline-token");
+                    window.location.href = 'admin_dashboard.html';
+                } else {
+                    errorMsg.textContent = "Network error or Invalid Credentials.";
+                    errorMsg.classList.add('active');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Authenticate`;
+            }
+        });
+    </script>
+</body>
+
+</html>

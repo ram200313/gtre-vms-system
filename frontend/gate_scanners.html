@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTRE VMS SYSTEM - Gate Scanners</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .log-container {
+            background: #111827;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            font-family: monospace;
+            height: 60vh;
+            overflow-y: auto;
+            color: #10b981;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #374151;
+            padding-bottom: 8px;
+        }
+
+        .log-time {
+            color: #9ca3af;
+            margin-right: 15px;
+        }
+
+        .log-evt {
+            color: #facc15;
+            font-weight: bold;
+        }
+
+        .log-ok {
+            color: #10b981;
+        }
+
+        .log-err {
+            color: #ef4444;
+        }
+
+        .hardware-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .hardware-card {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+        }
+
+        .hardware-icon {
+            font-size: 40px;
+            margin-right: 20px;
+        }
+
+        .status-dot {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background-color: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .status-offline {
+            background-color: var(--danger);
+        }
+    </style>
+    <script src="js/auth.js"></script>
+</head>
+
+<body>
+    <div class="layout-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h2>VMS SYSTEM</h2>
+                <span class="badge offline">OFFLINE MODE</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-gauge"></i> Dashboard
+                </a>
+                <a href="new_visitor.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i> New Visitor Entry
+                </a>
+                <a href="todays_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-users"></i> Today's Visitors
+                </a>
+                <a href="gate_scanners.html" class="nav-item active">
+                    <i class="fa-solid fa-door-open"></i> Gate Scanners
+                </a>
+                <a href="admin_dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-clipboard-check"></i> Admin Approvals
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Hardware Gate Integration</h1>
+
+                    <button onclick="systemLogout()" class="btn btn-secondary" style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                        <i class="fa-solid fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <div class="hardware-grid">
+                    <div class="hardware-card">
+                        <i class="fa-solid fa-camera hardware-icon" style="color: var(--primary-blue);"></i>
+                        <div>
+                            <h3>Facial Recognition Engine</h3>
+                            <p><span class="status-dot status-online"></span> Sensor Matrix Online (Offline Embeddings)
+                            </p>
+                        </div>
+                    </div>
+                    <div class="hardware-card">
+                        <i class="fa-solid fa-tower-broadcast hardware-icon" style="color: var(--warning);"></i>
+                        <div>
+                            <h3>RFID & Block Turnstiles</h3>
+                            <p><span class="status-dot status-online"></span> Internal Network Active</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-section" style="padding: 0;">
+                    <div class="section-title" style="padding: 24px 24px 0;"><i class="fa-solid fa-terminal"></i> Live
+                        Scanner Logs</div>
+                    <div class="log-container" id="terminalLogs">
+                        <div class="log-entry">
+                            <span class="log-time">[09:00:23]</span>
+                            <span class="log-evt">SYS_INIT:</span>
+                            <span>Hardware controllers bound successfully. Offline environment verified.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Simulate live hardware logs
+        const events = [
+            { type: 'SCAN_IN', msg: 'Face matched to ID: 1042 (Confidence: 99.4%)', ok: true },
+            { type: 'RFID_FAIL', msg: 'Unauthorized badge detected at Server Room Access Point.', ok: false },
+            { type: 'GATE_OPEN', msg: 'Main Lobby Turnstile #2 sequence active.', ok: true },
+            { type: 'SCAN_OUT', msg: 'Face matched ID: 981. Checkout auto-logged.', ok: true },
+            { type: 'HEARTBEAT', msg: 'Subsystem synchronized.', ok: true }
+        ];
+
+        function addLog() {
+            const container = document.getElementById('terminalLogs');
+            const event = events[Math.floor(Math.random() * events.length)];
+            const time = new Date().toLocaleTimeString();
+
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const colorClass = event.ok ? 'log-ok' : 'log-err';
+
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-evt ${colorClass}">${event.type}:</span>
+                <span class="${colorClass}">${event.msg}</span>
+            `;
+
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Add a mock log every 3 seconds
+        setInterval(addLog, 3500);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,7 @@
+# requirements.txt
+fastapi[all]
+uvicorn
+pydantic
+python-multipart
+cx_Oracle
+opencv-contrib-python-headless

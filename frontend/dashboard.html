@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTRE VMS SYSTEM - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .stat-card.success {
+            border-left-color: var(--success);
+        }
+
+        .stat-card.warning {
+            border-left-color: var(--warning);
+        }
+
+        .stat-card.danger {
+            border-left-color: var(--danger);
+        }
+
+        .stat-icon {
+            font-size: 36px;
+            color: var(--primary-blue);
+            margin-right: 20px;
+            opacity: 0.8;
+        }
+
+        .stat-card.success .stat-icon {
+            color: var(--success);
+        }
+
+        .stat-card.warning .stat-icon {
+            color: var(--warning);
+        }
+
+        .stat-card.danger .stat-icon {
+            color: var(--danger);
+        }
+
+        .stat-details h3 {
+            font-size: 28px;
+            margin: 0 0 4px 0;
+            color: var(--text-main);
+        }
+
+        .stat-details p {
+            margin: 0;
+            font-size: 14px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chart-container h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--text-main);
+            font-size: 16px;
+        }
+    </style>
+    <script src="js/auth.js"></script>
+</head>
+
+<body>
+    <div class="layout-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h2>VMS SYSTEM</h2>
+                <span class="badge offline">OFFLINE MODE</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item active">
+                    <i class="fa-solid fa-gauge"></i> Dashboard
+                </a>
+                <a href="new_visitor.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i> New Visitor Entry
+                </a>
+                <a href="todays_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-users"></i> Today's Visitors
+                </a>
+                <a href="attendance.html" class="nav-item">
+                    <i class="fa-solid fa-camera-retro"></i> Regular Attendance
+                </a>
+                <a href="gate_scanners.html" class="nav-item">
+                    <i class="fa-solid fa-door-open"></i> Gate Scanners
+                </a>
+                <a href="admin_dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-clipboard-check"></i> Admin Approvals
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Executive Analytics Dashboard</h1>
+                </div>
+                <div class="header-user">
+                    <div class="user-info">
+                        <span class="user-role">System Administrator</span>
+                        <span class="user-name">jayram v</span>
+                    </div>
+                    <div class="avatar" style="background-color: var(--primary-blue);">JV</div>
+
+                    <button onclick="systemLogout()" class="btn btn-secondary" style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                        <i class="fa-solid fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <!-- Top Statistics -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fa-solid fa-users stat-icon"></i>
+                        <div class="stat-details">
+                            <h3 id="statTotal">--</h3>
+                            <p>Total Visitors Today</p>
+                        </div>
+                    </div>
+                    <div class="stat-card warning">
+                        <i class="fa-solid fa-clock-rotate-left stat-icon"></i>
+                        <div class="stat-details">
+                            <h3 id="statPending">--</h3>
+                            <p>Pending Approvals</p>
+                        </div>
+                    </div>
+                    <div class="stat-card success">
+                        <i class="fa-solid fa-check-double stat-icon"></i>
+                        <div class="stat-details">
+                            <h3 id="statApproved">--</h3>
+                            <p>Approved Entries</p>
+                        </div>
+                    </div>
+                    <div class="stat-card danger">
+                        <i class="fa-solid fa-door-open stat-icon"></i>
+                        <div class="stat-details">
+                            <h3 id="statActive">--</h3>
+                            <p>Currently on Campus</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3><i class="fa-solid fa-chart-line"></i> Visitor Traffic Today (Hourly)</h3>
+                        <canvas id="trafficChart" height="100"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3><i class="fa-solid fa-chart-pie"></i> Visitors by Department</h3>
+                        <canvas id="departmentChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchDashboardData();
+        });
+
+        async function fetchDashboardData() {
+            try {
+                // Fetch pending and approved visitors to compile statistics
+                const pendingRes = await fetch('/api/visitors/pending');
+                const pendingData = await pendingRes.json();
+
+                const approvedRes = await fetch('/api/visitors/approved');
+                const approvedData = await approvedRes.json();
+
+                const attendanceRes = await fetch('/api/attendance');
+                const attendanceData = await attendanceRes.json();
+
+                let pendingCount = 0;
+                let approvedCount = 0;
+                let activeAttendanceCount = 0;
+
+                if (pendingData.status === 'success') pendingCount = pendingData.data.length;
+                if (approvedData.status === 'success') approvedCount = approvedData.data.length;
+                if (attendanceData.status === 'success') {
+                    activeAttendanceCount = attendanceData.data.filter(log => log.exitTime === null).length;
+                }
+
+                const total = pendingCount + approvedCount;
+
+                // Active calculation: For demo, active is approved plus any regular attendees currently registered on campus
+                const activeOnCampus = approvedCount + activeAttendanceCount;
+
+                // Update DOM Stats
+                document.getElementById('statTotal').textContent = total || 0;
+                document.getElementById('statPending').textContent = pendingCount || 0;
+                document.getElementById('statApproved').textContent = approvedCount || 0;
+                document.getElementById('statActive').textContent = activeOnCampus || 0;
+
+                // Render Charts with real + mock data
+                renderCharts(approvedData.data || []);
+            } catch (err) {
+                console.error("Failed to load dashboard data", err);
+
+                // Render empty mock charts if backend is down
+                document.getElementById('statTotal').textContent = "Err";
+                document.getElementById('statPending').textContent = "Err";
+                document.getElementById('statApproved').textContent = "Err";
+                document.getElementById('statActive').textContent = "Err";
+                renderCharts([]);
+            }
+        }
+
+        function renderCharts(approvedVisitorsList) {
+            // Processing Block data from the approved list
+            // For offline simulation, if data is sparse, inject some mock background data
+            let hrCount = 1; let serverCount = 0; let meetingCount = 2; let blockACount = 4;
+
+            approvedVisitorsList.forEach(v => {
+                // If we exposed 'allowedBlocks' in GET API we would calculate exactly.
+                // Assuming random distribution based on ID for visual demonstration
+                if (v.id % 4 === 0) hrCount++;
+                else if (v.id % 3 === 0) serverCount++;
+                else if (v.id % 2 === 0) meetingCount++;
+                else blockACount++;
+            });
+
+            // Traffic Chart (Mocked hourly distribution + real totals)
+            const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
+            new Chart(ctxTraffic, {
+                type: 'line',
+                data: {
+                    labels: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                    datasets: [{
+                        label: 'Visitor Arrivals',
+                        data: [2, 5, 8, 3, 4, 9, 2, approvedVisitorsList.length],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Department Pie Chart
+            const ctxDept = document.getElementById('departmentChart').getContext('2d');
+            new Chart(ctxDept, {
+                type: 'doughnut',
+                data: {
+                    labels: ['HR Dept', 'Server Room', 'Meeting Hall', 'Block A'],
+                    datasets: [{
+                        data: [hrCount, serverCount, meetingCount, blockACount],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } },
+                    cutout: '60%'
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+uploads/
+venv/
+env/
+.env
+.idea/
+.vscode/
+*.db
+*.sqlite3
+server.py
+update_urls.py
+replace_text.py
+update_admin_name.py
+update_admin_name_2.py

@@ -13,7 +13,7 @@
     <style>
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 24px;
             margin-bottom: 24px;
         }
@@ -93,7 +93,7 @@
             font-size: 16px;
         }
     </style>
-    <script src="js/auth.js"></script>
+    <script src="js/auth.js?v=7"></script>
 </head>
 
 <body>
@@ -109,20 +109,29 @@
                 <a href="dashboard.html" class="nav-item active">
                     <i class="fa-solid fa-gauge"></i> Dashboard
                 </a>
-                <a href="new_visitor.html" class="nav-item">
-                    <i class="fa-solid fa-user-plus"></i> New Visitor Entry
+                <div class="nav-label"
+                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Officer Portal</div>
+                <a href="visitor_request.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i> Pre-Registration
+                </a>
+                <a href="officer_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-list-check"></i> My Visitors
+                </a>
+                <div class="nav-label"
+                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Reception & Security</div>
+                <a href="reception_dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-camera"></i> Reception Dashboard
                 </a>
                 <a href="todays_visitors.html" class="nav-item">
                     <i class="fa-solid fa-users"></i> Today's Visitors
                 </a>
                 <a href="attendance.html" class="nav-item">
-                    <i class="fa-solid fa-camera-retro"></i> Regular Attendance
+                    <i class="fa-solid fa-user-check"></i> Regular Attendance
                 </a>
                 <a href="gate_scanners.html" class="nav-item">
                     <i class="fa-solid fa-door-open"></i> Gate Scanners
-                </a>
-                <a href="admin_dashboard.html" class="nav-item">
-                    <i class="fa-solid fa-clipboard-check"></i> Admin Approvals
                 </a>
             </nav>
         </aside>
@@ -140,7 +149,8 @@
                     </div>
                     <div class="avatar" style="background-color: var(--primary-blue);">JV</div>
 
-                    <button onclick="systemLogout()" class="btn btn-secondary" style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                    <button onclick="systemLogout()" class="btn btn-secondary"
+                        style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
                         <i class="fa-solid fa-sign-out-alt"></i> Logout
                     </button>
                 </div>
@@ -174,7 +184,14 @@
                         <i class="fa-solid fa-door-open stat-icon"></i>
                         <div class="stat-details">
                             <h3 id="statActive">--</h3>
-                            <p>Currently on Campus</p>
+                            <p>Currently Inside</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #64748b;">
+                        <i class="fa-solid fa-door-closed stat-icon" style="color: #64748b;"></i>
+                        <div class="stat-details">
+                            <h3 id="statExited">--</h3>
+                            <p>Total Exited</p>
                         </div>
                     </div>
                 </div>
@@ -202,74 +219,46 @@
 
         async function fetchDashboardData() {
             try {
-                // Fetch pending and approved visitors to compile statistics
-                const pendingRes = await fetch('/api/visitors/pending');
-                const pendingData = await pendingRes.json();
+                const res = await fetch('/api/dashboard/stats');
+                const result = await res.json();
 
-                const approvedRes = await fetch('/api/visitors/approved');
-                const approvedData = await approvedRes.json();
+                if (result.status === 'success') {
+                    const stats = result.data;
 
-                const attendanceRes = await fetch('/api/attendance');
-                const attendanceData = await attendanceRes.json();
+                    // Update DOM Stats
+                    document.getElementById('statTotal').textContent = stats.totalToday;
+                    document.getElementById('statPending').textContent = stats.pending;
+                    document.getElementById('statApproved').textContent = stats.approved;
+                    document.getElementById('statActive').textContent = stats.inside;
+                    document.getElementById('statExited').textContent = stats.exited;
 
-                let pendingCount = 0;
-                let approvedCount = 0;
-                let activeAttendanceCount = 0;
-
-                if (pendingData.status === 'success') pendingCount = pendingData.data.length;
-                if (approvedData.status === 'success') approvedCount = approvedData.data.length;
-                if (attendanceData.status === 'success') {
-                    activeAttendanceCount = attendanceData.data.filter(log => log.exitTime === null).length;
+                    // Render Charts
+                    renderCharts(stats);
                 }
-
-                const total = pendingCount + approvedCount;
-
-                // Active calculation: For demo, active is approved plus any regular attendees currently registered on campus
-                const activeOnCampus = approvedCount + activeAttendanceCount;
-
-                // Update DOM Stats
-                document.getElementById('statTotal').textContent = total || 0;
-                document.getElementById('statPending').textContent = pendingCount || 0;
-                document.getElementById('statApproved').textContent = approvedCount || 0;
-                document.getElementById('statActive').textContent = activeOnCampus || 0;
-
-                // Render Charts with real + mock data
-                renderCharts(approvedData.data || []);
             } catch (err) {
                 console.error("Failed to load dashboard data", err);
-
-                // Render empty mock charts if backend is down
-                document.getElementById('statTotal').textContent = "Err";
-                document.getElementById('statPending').textContent = "Err";
-                document.getElementById('statApproved').textContent = "Err";
-                document.getElementById('statActive').textContent = "Err";
-                renderCharts([]);
+                // Fallback display
+                document.querySelectorAll('.stat-details h3').forEach(h3 => h3.textContent = "0");
+                renderCharts({ departmentData: {}, hourlyTraffic: [0, 0, 0, 0, 0, 0, 0, 0] });
             }
         }
 
-        function renderCharts(approvedVisitorsList) {
-            // Processing Block data from the approved list
-            // For offline simulation, if data is sparse, inject some mock background data
-            let hrCount = 1; let serverCount = 0; let meetingCount = 2; let blockACount = 4;
+        function renderCharts(stats) {
+            const deptLabels = Object.keys(stats.departmentData);
+            const deptValues = Object.values(stats.departmentData);
 
-            approvedVisitorsList.forEach(v => {
-                // If we exposed 'allowedBlocks' in GET API we would calculate exactly.
-                // Assuming random distribution based on ID for visual demonstration
-                if (v.id % 4 === 0) hrCount++;
-                else if (v.id % 3 === 0) serverCount++;
-                else if (v.id % 2 === 0) meetingCount++;
-                else blockACount++;
-            });
-
-            // Traffic Chart (Mocked hourly distribution + real totals)
+            // Traffic Chart
             const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
-            new Chart(ctxTraffic, {
+            // Clear previous chart if it exists
+            if (window.trafficChartObj) window.trafficChartObj.destroy();
+
+            window.trafficChartObj = new Chart(ctxTraffic, {
                 type: 'line',
                 data: {
                     labels: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
                     datasets: [{
                         label: 'Visitor Arrivals',
-                        data: [2, 5, 8, 3, 4, 9, 2, approvedVisitorsList.length],
+                        data: stats.hourlyTraffic,
                         borderColor: '#2563eb',
                         backgroundColor: 'rgba(37, 99, 235, 0.1)',
                         borderWidth: 2,
@@ -280,19 +269,22 @@
                 options: {
                     responsive: true,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
                 }
             });
 
             // Department Pie Chart
             const ctxDept = document.getElementById('departmentChart').getContext('2d');
-            new Chart(ctxDept, {
+            // Clear previous chart if it exists
+            if (window.deptChartObj) window.deptChartObj.destroy();
+
+            window.deptChartObj = new Chart(ctxDept, {
                 type: 'doughnut',
                 data: {
-                    labels: ['HR Dept', 'Server Room', 'Meeting Hall', 'Block A'],
+                    labels: deptLabels.length > 0 ? deptLabels : ['No Data'],
                     datasets: [{
-                        data: [hrCount, serverCount, meetingCount, blockACount],
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1'],
+                        data: deptValues.length > 0 ? deptValues : [1],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#f97316'],
                         borderWidth: 0
                     }]
                 },

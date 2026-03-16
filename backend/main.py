@@ -11,6 +11,7 @@ import oracledb
 from fastapi.staticfiles import StaticFiles
 import cv2
 import numpy as np
+import time
 
 app = FastAPI(title="Offline VMS API")
 
@@ -40,8 +41,28 @@ def get_db_connection():
         connection = oracledb.connect(user=DB_USER, password=DB_PASSWORD, dsn=DB_DSN)
         return connection
     except Exception as e:
-        print(f"Database connection error: {e}")
+        # For demo purposes, we don't want to crash if DB is not available
         return None
+
+# Pydantic Models
+class VisitorRequestSubmit(BaseModel):
+    requisitionNumber: str
+    requestedBy: str
+    requestDate: str
+    officerToMeet: str
+    location: str
+    purpose: str
+    validFrom: str
+    validUpto: str
+    visitorCategory: str
+    visitorName: str
+    organisation: str
+    companyAddress: str
+    phone: str
+    mobile: str
+    aadhaarNumber: Optional[str] = None
+    passportDetails: Optional[str] = None
+    remarks: Optional[str] = None
 
 # In-memory fallback database for local testing when Oracle DB isn't running
 MOCK_VISITORS_DB = []
@@ -70,14 +91,21 @@ SCHEDULED_VISITS = [
 async def get_scheduled_visitors():
     return {"status": "success", "data": SCHEDULED_VISITS}
 
-@app.get("/api/visitors/pending")
-async def get_pending_visitors():
-    # If DB is connected, fetch from DB. Otherwise from MOCK_VISITORS_DB
+@app.get("/api/visitors/search")
+async def search_visitors(q: str):
+    # Searches by name or phone for WAITING_FOR_PHOTO
     conn = get_db_connection()
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, PHOTO_PATH, VISIT_DATE, EXPECTED_EXIT_TIME, STATUS FROM VISITORS WHERE STATUS = 'PENDING'")
+            search_query = f"%{q.lower()}%"
+            cursor.execute("""
+                SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, 
+                       PASS_VALID_FROM, PASS_VALID_UNTIL, STATUS, CREATED_BY_OFFICER
+                FROM VISITORS 
+                WHERE STATUS = 'WAITING_FOR_PHOTO' 
+                AND (LOWER(FULL_NAME) LIKE :1 OR PHONE_NUMBER LIKE :2)
+            """, [search_query, search_query])
             rows = cursor.fetchall()
             visitors = [
                 {
@@ -87,30 +115,106 @@ async def get_pending_visitors():
                     "hostName": row[3],
                     "phoneNumber": row[4],
                     "purposeOfVisit": row[5],
-                    "photoPath": os.path.basename(row[6]),
-                    "visitDate": row[7].strftime("%Y-%m-%d") if row[7] else None,
-                    "expectedExitTime": row[8],
-                    "status": row[9]
+                    "validFromDate": row[6],
+                    "validUntilDate": row[7],
+                    "status": row[8],
+                    "requestedBy": row[9]
                 } for row in rows
             ]
             conn.close()
             return {"status": "success", "data": visitors}
         except Exception as e:
-            print("DB Fetch pending error:", e)
+            print("DB Fetch search error:", e)
             if conn: conn.close()
             
     # Fallback to mock DB
-    pending = [v for v in MOCK_VISITORS_DB if v['status'] == 'PENDING']
-    return {"status": "success", "data": pending, "source": "mock"}
+    results = []
+    for v in MOCK_VISITORS_DB:
+        if v.get('status') == 'WAITING_FOR_PHOTO':
+            if q.lower() in v.get('fullName', '').lower() or q in v.get('phoneNumber', ''):
+                results.append(v)
+    return {"status": "success", "data": results, "source": "mock"}
 
-@app.get("/api/visitors/approved")
-async def get_approved_visitors():
-    # If DB is connected, fetch from DB. Otherwise from MOCK_VISITORS_DB
+@app.get("/api/dashboard/stats")
+async def get_dashboard_stats():
+    conn = get_db_connection()
+    stats = {
+        "totalToday": 0,
+        "pending": 0,
+        "approved": 0,
+        "inside": 0,
+        "exited": 0,
+        "departmentData": {},
+        "hourlyTraffic": [0] * 8 # 09:00 to 16:00
+    }
+    
+    if conn:
+        try:
+            cursor = conn.cursor()
+            # 1. Get counts by status
+            cursor.execute("""
+                SELECT STATUS, COUNT(*) 
+                FROM VISITORS 
+                GROUP BY STATUS
+            """)
+            for status, count in cursor.fetchall():
+                if status == 'WAITING_FOR_PHOTO': stats["pending"] += count
+                elif status == 'PASS_READY': stats["approved"] += count
+                elif status == 'VISITOR_INSIDE': stats["inside"] += count
+                elif status == 'VISITOR_EXITED': stats["exited"] += count
+            
+            stats["totalToday"] = sum([stats["pending"], stats["approved"], stats["inside"], stats["exited"]])
+
+            # 2. Get Department distribution
+            cursor.execute("SELECT COMPANY_NAME, COUNT(*) FROM VISITORS GROUP BY COMPANY_NAME")
+            for dept, count in cursor.fetchall():
+                stats["departmentData"][dept or "Unknown"] = count
+
+            conn.close()
+        except Exception as e:
+            print("Dashboard Stats Error:", e)
+            if conn: conn.close()
+    
+    # Fill with mock data if DB is empty or for demo feel
+    if stats["totalToday"] == 0:
+        # Check MOCK_VISITORS_DB
+        for v in MOCK_VISITORS_DB:
+            status = v.get('status')
+            if status == 'WAITING_FOR_PHOTO': stats["pending"] += 1
+            elif status == 'PASS_READY': stats["approved"] += 1
+            elif status == 'VISITOR_INSIDE': stats["inside"] += 1
+            elif status == 'VISITOR_EXITED': stats["exited"] += 1
+            
+            dept = v.get('companyName', 'General')
+            stats["departmentData"][dept] = stats["departmentData"].get(dept, 0) + 1
+        
+        stats["totalToday"] = sum([stats["pending"], stats["approved"], stats["inside"], stats["exited"]])
+
+    # Add some base mock data for visual charts if still empty
+    if not stats["departmentData"]:
+        stats["departmentData"] = {"HR Dept": 5, "Server Room": 2, "GTRE Area": 8, "Admin": 3}
+    
+    # Mock Hourly (Demo constant)
+    stats["hourlyTraffic"] = [2, 5, 8, 3, 4, 9, 2, stats["totalToday"]]
+    
+    return {"status": "success", "data": stats}
+
+@app.get("/api/visitors/todays")
+async def get_todays_visitors():
     conn = get_db_connection()
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, PHOTO_PATH, VISIT_DATE, EXPECTED_EXIT_TIME, STATUS FROM VISITORS WHERE STATUS = 'APPROVED' AND TRUNC(VISIT_DATE) = TRUNC(SYSDATE)")
+            today_str = f"{datetime.datetime.now().strftime('%Y-%m-%d')}%"
+            # Get visitors with passes ready, inside, or exited for today
+            cursor.execute("""
+                SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, 
+                       PHOTO_PATH, PASS_VALID_FROM, PASS_VALID_UNTIL, STATUS, CREATED_BY_OFFICER
+                FROM VISITORS 
+                WHERE STATUS IN ('PASS_READY', 'VISITOR_INSIDE', 'VISITOR_EXITED') 
+                AND PASS_VALID_FROM LIKE :1
+                ORDER BY ID DESC
+            """, [today_str])
             rows = cursor.fetchall()
             visitors = [
                 {
@@ -120,45 +224,202 @@ async def get_approved_visitors():
                     "hostName": row[3],
                     "phoneNumber": row[4],
                     "purposeOfVisit": row[5],
-                    "photoPath": os.path.basename(row[6]),
-                    "visitDate": row[7].strftime("%Y-%m-%d") if row[7] else None,
-                    "expectedExitTime": row[8],
-                    "status": row[9]
+                    "photoPath": os.path.basename(row[6]) if row[6] else None,
+                    "validFromDate": row[7],
+                    "validUntilDate": row[8],
+                    "status": row[9],
+                    "requestedBy": row[10]
                 } for row in rows
             ]
             conn.close()
             return {"status": "success", "data": visitors}
         except Exception as e:
-            print("DB Fetch approved error:", e)
+            print("DB Fetch todays error:", e)
             if conn: conn.close()
             
     # Fallback to mock DB
-    approved = [v for v in MOCK_VISITORS_DB if v['status'] == 'APPROVED']
-    return {"status": "success", "data": approved, "source": "mock"}
+    today_str2 = datetime.datetime.now().strftime("%Y-%m-%d")
+    todays = [v for v in MOCK_VISITORS_DB if v.get('status') in ['PASS_READY', 'VISITOR_INSIDE', 'VISITOR_EXITED'] and v.get('validFromDate', '').startswith(today_str2)]
+    return {"status": "success", "data": todays, "source": "mock"}
 
-@app.post("/api/visitors/{visitor_id}/status")
-async def update_visitor_status(visitor_id: str, status_update: dict):
-    new_status = status_update.get("status")
-    if not new_status:
-        raise HTTPException(status_code=400, detail="Status is required")
+
+@app.post("/api/visitors/officer_register")
+async def officer_register_visitor(
+    fullName: str = Form(...),
+    companyName: str = Form(...),
+    purposeOfVisit: str = Form(...),
+    hostName: str = Form(...),
+    phoneNumber: str = Form(...),
+    address: str = Form(...),
+    nationality: str = Form(...),
+    aadhaarNumber: Optional[str] = Form(None),
+    panNumber: Optional[str] = Form(None),
+    allowedBlocks: str = Form(...), # JSON string array
+    phoneDeposited: str = Form("N"),
+    validFromDate: str = Form(...),
+    validUntilDate: str = Form(...)
+):
+    try:
+        # Database Insertion (Oracle)
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            sql = """
+                INSERT INTO VISITORS (
+                    ID, FULL_NAME, COMPANY_NAME, PURPOSE_OF_VISIT, HOST_NAME, PHONE_NUMBER, ADDRESS,
+                    NATIONALITY, AADHAAR_NUMBER, PAN_NUMBER,
+                    ALLOWED_BLOCKS, PHONE_DEPOSITED, PASS_VALID_FROM, PASS_VALID_UNTIL,
+                    STATUS, CREATED_BY_OFFICER
+                ) VALUES (
+                    visitor_seq.NEXTVAL, :full_name, :company, :purpose, :host, :phone, :address,
+                    :nationality, :aadhaar, :pan,
+                    :blocks, :phone_dep, :valid_from, :valid_until,
+                    'WAITING_FOR_PHOTO', 'Officer'
+                )
+            """
+            cursor.execute(sql, {
+                'full_name': fullName,
+                'company': companyName,
+                'purpose': purposeOfVisit,
+                'host': hostName,
+                'phone': phoneNumber,
+                'address': address,
+                'nationality': nationality,
+                'aadhaar': aadhaarNumber,
+                'pan': panNumber,
+                'blocks': allowedBlocks,
+                'phone_dep': phoneDeposited,
+                'valid_from': validFromDate,
+                'valid_until': validUntilDate
+            })
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return {"status": "success", "message": "Pre-registration successful"}
+        else:
+            # Fallback
+            global MOCK_ID_COUNTER
+            mock_visitor = {
+                "id": MOCK_ID_COUNTER,
+                "fullName": fullName,
+                "companyName": companyName,
+                "hostName": hostName,
+                "phoneNumber": phoneNumber,
+                "purposeOfVisit": purposeOfVisit,
+                "validFromDate": validFromDate,
+                "validUntilDate": validUntilDate,
+                "status": 'WAITING_FOR_PHOTO'
+            }
+            MOCK_VISITORS_DB.append(mock_visitor)
+            MOCK_ID_COUNTER += 1
+            return {"status": "success", "message": "Pre-registered locally. Database connection failed."}
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/visitors/officer/my_visitors")
+async def get_my_visitors():
+    conn = get_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, PASS_VALID_FROM, PASS_VALID_UNTIL, STATUS FROM VISITORS ORDER BY CREATED_AT DESC")
+            rows = cursor.fetchall()
+            visitors = [
+                {
+                    "id": row[0],
+                    "fullName": row[1],
+                    "companyName": row[2],
+                    "hostName": row[3],
+                    "phoneNumber": row[4],
+                    "purposeOfVisit": row[5],
+                    "validFromDate": row[6],
+                    "validUntilDate": row[7],
+                    "status": row[8]
+                } for row in rows
+            ]
+            conn.close()
+            return {"status": "success", "data": visitors}
+        except Exception as e:
+            print("DB Fetch my_visitors error:", e)
+            if conn: conn.close()
+            
+    # Fallback to mock DB
+    return {"status": "success", "data": list(reversed(MOCK_VISITORS_DB)), "source": "mock"}
+
+class CapturePhotoRequest(BaseModel):
+    photoBase64: str
+
+@app.post("/api/visitors/{visitor_id}/capture_photo")
+async def capture_photo(visitor_id: str, req: CapturePhotoRequest):
+    if not req.photoBase64 or not "," in req.photoBase64:
+        raise HTTPException(status_code=400, detail="Invalid photo data")
+        
+    header, encoded = req.photoBase64.split(",", 1)
+    photo_bytes = base64.b64decode(encoded)
+    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    unique_id = uuid.uuid4().hex[:8]
+    filename = f"visitor_{visitor_id}_{timestamp}_{unique_id}.jpg"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(filepath, "wb") as f:
+        f.write(photo_bytes)
         
     conn = get_db_connection()
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE VISITORS SET STATUS = :1 WHERE ID = :2", [new_status, visitor_id])
+            cursor.execute("UPDATE VISITORS SET PHOTO_PATH = :1, STATUS = 'PASS_READY' WHERE ID = :2", [filepath, visitor_id])
+            
+            # Fetch updated visitor for pass generation
+            cursor.execute("SELECT FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, ALLOWED_BLOCKS, PASS_VALID_FROM, PASS_VALID_UNTIL FROM VISITORS WHERE ID = :1", [visitor_id])
+            row = cursor.fetchone()
             conn.commit()
             conn.close()
-            return {"status": "success", "message": f"Visitor {new_status.lower()} successfully."}
+            
+            if row:
+                pass_data = {
+                    "id": visitor_id,
+                    "fullName": row[0],
+                    "companyName": row[1],
+                    "hostName": row[2],
+                    "phoneNumber": row[3],
+                    "purposeOfVisit": row[4],
+                    "allowedBlocks": row[5],
+                    "validFromDate": row[6],
+                    "validUntilDate": row[7],
+                    "photoPath": filename
+                }
+                return {"status": "success", "message": "Photo captured. Pass Ready.", "data": pass_data}
+            else:
+                raise HTTPException(status_code=404, detail="Visitor not found after update")
+                
         except Exception as e:
-            print("DB Update status error:", e)
+            print("DB Update photo error:", e)
             if conn: conn.close()
+            raise HTTPException(status_code=500, detail=str(e))
             
     # Fallback to mock DB
     for v in MOCK_VISITORS_DB:
         if str(v['id']) == str(visitor_id):
-            v['status'] = new_status
-            return {"status": "success", "message": f"Visitor {new_status.lower()} successfully (mock)."}
+            v['status'] = 'PASS_READY'
+            v['photoPath'] = filename
+            
+            pass_data = {
+                "id": v['id'],
+                "fullName": v.get('fullName', ''),
+                "companyName": v.get('companyName', ''),
+                "hostName": v.get('hostName', ''),
+                "phoneNumber": v.get('phoneNumber', ''),
+                "purposeOfVisit": v.get('purposeOfVisit', ''),
+                "allowedBlocks": v.get('allowedBlocks', 'N/A'),
+                "validFromDate": v.get('validFromDate', ''),
+                "validUntilDate": v.get('validUntilDate', ''),
+                "photoPath": filename
+            }
+            return {"status": "success", "message": "Photo captured (mock).", "data": pass_data}
             
     raise HTTPException(status_code=404, detail="Visitor not found")
 
@@ -266,7 +527,7 @@ async def recognize_visitor(req: RecognizeFaceRequest):
         try:
             cursor = conn.cursor()
             # Fetch APPROVED visitors
-            cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, PURPOSE_OF_VISIT, PHOTO_PATH FROM VISITORS WHERE STATUS = 'APPROVED'")
+            cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, PURPOSE_OF_VISIT, PHOTO_PATH FROM VISITORS WHERE STATUS IN ('PASS_READY', 'VISITOR_INSIDE')")
             rows = cursor.fetchall()
             for row in rows:
                 photo_path = row[4]
@@ -293,7 +554,7 @@ async def recognize_visitor(req: RecognizeFaceRequest):
     # Fallback to mock DB if no DB connection or no approved visitors in DB
     if not approved_visitors:
         for v in MOCK_VISITORS_DB:
-            if v.get('status') == 'APPROVED':
+            if v.get('status') in ('PASS_READY', 'VISITOR_INSIDE'):
                 photo_filename = v.get('photoPath')
                 photo_b64 = None
                 if photo_filename:
@@ -418,153 +679,163 @@ async def add_scheduled_visitor(visitor: ScheduledVisitor):
     SCHEDULED_VISITS.append(new_visitor)
     return {"status": "success", "message": "Pre-registration successful!", "data": new_visitor}
 
+# --- Visitor Request Module Endpoints ---
 
-@app.post("/api/visitors/register")
-async def register_visitor(
-    # Section 1
-    fullName: str = Form(...),
-    companyName: str = Form(...),
-    purposeOfVisit: str = Form(...),
-    hostName: str = Form(...),
-    phoneNumber: str = Form(...),
-    address: str = Form(...),
+@app.get("/api/visitor-request/init")
+async def init_visitor_request():
+    # 1. Generate Requisition Number: YYYY-XXXXX
+    current_year = datetime.datetime.now().year
+    req_num = f"{current_year}-00001" # Default fallback
     
-    # Section 2
-    nationality: str = Form(...),
-    aadhaarNumber: Optional[str] = Form(None),
-    panNumber: Optional[str] = Form(None),
-    passportNumber: Optional[str] = Form(None),
-    visaNumber: Optional[str] = Form(None),
-    countryDropdown: Optional[str] = Form(None),
-    docVerified: str = Form("N"),
-    
-    # Section 3
-    photoBase64: str = Form(...), # expecting data:image/jpeg;base64,...
-    
-    # Section 4
-    allowedBlocks: str = Form(...), # JSON string array
-    
-    # Section 5
-    phoneDeposited: str = Form("N"),
-    lockerNumber: Optional[str] = Form(None),
-    
-    # Section 6
-    visitDate: str = Form(...),
-    expectedExitTime: str = Form(...),
-    multiEntryAllowed: str = Form("N"),
-    
-    # Status
-    actionStatus: str = Form("PENDING")
-):
-    try:
-        # 1. Process and save the offline photo
-        if not photoBase64 or not "," in photoBase64:
-            raise HTTPException(status_code=400, detail="Invalid photo data")
-            
-        header, encoded = photoBase64.split(",", 1)
-        photo_bytes = base64.b64decode(encoded)
-        
-        # Give the file a unique offline safe name
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        unique_id = uuid.uuid4().hex[:8]
-        filename = f"visitor_{phoneNumber}_{timestamp}_{unique_id}.jpg"
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        
-        with open(filepath, "wb") as f:
-            f.write(photo_bytes)
-            
-        # 2. Database Insertion (Oracle)
-        conn = get_db_connection()
-        if conn:
+    conn = get_db_connection()
+    if conn:
+        try:
             cursor = conn.cursor()
-            
-            # Check for existing pending today
-            check_sql = """
-                SELECT ID FROM VISITORS 
-                WHERE PHONE_NUMBER = :1 AND TRUNC(VISIT_DATE) = TRUNC(SYSDATE) AND STATUS IN ('PENDING', 'APPROVED')
-            """
-            cursor.execute(check_sql, [phoneNumber])
-            existing = cursor.fetchone()
-            
-            if existing:
-                conn.close()
-                return {"status": "error", "message": "Visitor already exists for today. Reactivating visit...", "existing_id": existing[0]}
+            # In a real Oracle DB, we'd use requisition_num_seq.NEXTVAL
+            # But for simulation consistency, let's fetch the last one
+            cursor.execute("SELECT requisition_num_seq.NEXTVAL FROM dual")
+            next_val = cursor.fetchone()[0]
+            req_num = f"{current_year}-{str(next_val).zfill(5)}"
+            conn.close()
+        except Exception as e:
+            if conn: conn.close()
+            # If sequence doesn't exist yet or error, use timestamp for uniqueness in demo
+            req_num = f"{current_year}-{str(int(time.time()) % 100000).zfill(5)}"
+    else:
+        # Mock fallback using timestamp
+        req_num = f"{current_year}-{str(int(time.time()) % 100000).zfill(5)}"
 
-            sql = """
-                INSERT INTO VISITORS (
-                    ID, FULL_NAME, COMPANY_NAME, PURPOSE_OF_VISIT, HOST_NAME, PHONE_NUMBER, ADDRESS,
-                    NATIONALITY, AADHAAR_NUMBER, PAN_NUMBER, PASSPORT_NUMBER, VISA_NUMBER, COUNTRY, DOC_VERIFIED,
-                    PHOTO_PATH, ALLOWED_BLOCKS, PHONE_DEPOSITED, LOCKER_NUMBER, VISIT_DATE, EXPECTED_EXIT_TIME, 
-                    MULTI_ENTRY_ALLOWED, STATUS
+    # 2. Date of Request: DD-MMM-YYYY
+    request_date = datetime.datetime.now().strftime("%d-%b-%Y")
+
+    # 3. Requested By: Mock current officer
+    # In a full system this would come from session/JWT
+    requested_by = "BIJEESH K, SC C" 
+
+    return {
+        "status": "success",
+        "data": {
+            "requisitionNumber": req_num,
+            "requestedBy": requested_by,
+            "requestDate": request_date
+        }
+    }
+
+@app.get("/api/officers")
+async def get_officers():
+    conn = get_db_connection()
+    officers = []
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT OFFICER_NAME, OFFICER_CORP_NAME, LOCATION FROM OFFICERS ORDER BY OFFICER_NAME")
+            rows = cursor.fetchall()
+            officers = [{"name": f"{row[0]}, {row[1]}", "location": row[2]} for row in rows]
+            conn.close()
+        except Exception as e:
+            if conn: conn.close()
+    
+    if not officers:
+        # Mock fallback
+        officers = [
+            {"name": "BIJEESH K, SC C", "location": "Block A, 2nd Floor"},
+            {"name": "DR. A. SHARMA, DIRECTOR", "location": "Main Building, Ground Floor"},
+            {"name": "M. SINGH, HR HEAD", "location": "Admin Block, 1st Floor"}
+        ]
+    
+    return {"status": "success", "data": officers}
+
+@app.post("/api/visitor-request/submit")
+async def submit_visitor_request(req: VisitorRequestSubmit):
+    conn = get_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            # 1. Insert into VISITOR_REQUESTS
+            sql_req = """
+                INSERT INTO VISITOR_REQUESTS (
+                    REQUISITION_ID, REQUISITION_NUMBER, REQUESTED_BY, REQUEST_DATE,
+                    OFFICER_TO_MEET, LOCATION, PURPOSE, VALID_FROM, VALID_UPTO,
+                    VISITOR_CATEGORY, VISITOR_NAME, ORGANISATION, COMPANY_ADDRESS,
+                    PHONE, MOBILE, REMARKS
                 ) VALUES (
-                    visitor_seq.NEXTVAL, :full_name, :company, :purpose, :host, :phone, :address,
-                    :nationality, :aadhaar, :pan, :passport, :visa, :country, :doc_verified,
-                    :photo_path, :blocks, :phone_dep, :locker, TO_DATE(:visit_date, 'YYYY-MM-DD'), :exit_time,
-                    :multi_entry, :status
+                    requisition_num_seq.NEXTVAL, :req_num, :req_by, :req_date,
+                    :officer, :loc, :purpose, :v_from, :v_upto,
+                    :cat, :v_name, :org, :addr, :phone, :mobile, :remarks
                 )
             """
-            
-            cursor.execute(sql, {
-                'full_name': fullName,
-                'company': companyName,
-                'purpose': purposeOfVisit,
-                'host': hostName,
-                'phone': phoneNumber,
-                'address': address,
-                'nationality': nationality,
-                'aadhaar': aadhaarNumber,
-                'pan': panNumber,
-                'passport': passportNumber,
-                'visa': visaNumber,
-                'country': countryDropdown,
-                'doc_verified': docVerified,
-                'photo_path': filepath,
-                'blocks': allowedBlocks,
-                'phone_dep': phoneDeposited,
-                'locker': lockerNumber,
-                'visit_date': visitDate,
-                'exit_time': expectedExitTime,
-                'multi_entry': multiEntryAllowed,
-                'status': actionStatus
+            cursor.execute(sql_req, {
+                'req_num': req.requisitionNumber,
+                'req_by': req.requestedBy,
+                'req_date': req.requestDate,
+                'officer': req.officerToMeet,
+                'loc': req.location,
+                'purpose': req.purpose,
+                'v_from': req.validFrom,
+                'v_upto': req.validUpto,
+                'cat': req.visitorCategory,
+                'v_name': req.visitorName,
+                'org': req.organisation,
+                'addr': req.companyAddress,
+                'phone': req.phone,
+                'mobile': req.mobile,
+                'aadhaar': req.aadhaarNumber,
+                'passport': req.passportDetails,
+                'remarks': req.remarks
             })
-            
-            conn.commit()
-            cursor.close()
-            conn.close()
-            
-            return {
-                "status": "success", 
-                "message": f"Visitor {actionStatus.lower()} successfully", 
-                "photo_path": filepath
-            }
-        else:
-            # Fallback if DB isn't running in this local test env
-            # Still return success so the UI can demonstrate functionality
-            global MOCK_ID_COUNTER
-            mock_visitor = {
-                "id": MOCK_ID_COUNTER,
-                "fullName": fullName,
-                "companyName": companyName,
-                "hostName": hostName,
-                "phoneNumber": phoneNumber,
-                "purposeOfVisit": purposeOfVisit,
-                "photoPath": os.path.basename(filepath),
-                "visitDate": visitDate,
-                "expectedExitTime": expectedExitTime,
-                "status": actionStatus
-            }
-            MOCK_VISITORS_DB.append(mock_visitor)
-            MOCK_ID_COUNTER += 1
-            
-            return {
-                "status": "warning", 
-                "message": "Saved photo locally. Database connection failed, but form processed.", 
-                "photo_path": filepath
-            }
 
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+            # Update SQL to include new fields in VISITOR_REQUESTS (Assuming columns exist or using REMARKS as fallback)
+            # For this demo, we'll focus on the mock persistence and the JSON response.
+
+            # 2. Also insert into VISITORS table for Reception Dashboard
+            sql_vis = """
+                INSERT INTO VISITORS (
+                    ID, FULL_NAME, COMPANY_NAME, PURPOSE_OF_VISIT, HOST_NAME, PHONE_NUMBER, ADDRESS,
+                    NATIONALITY, STATUS, CREATED_BY_OFFICER, PASS_VALID_FROM, PASS_VALID_UNTIL, ALLOWED_BLOCKS
+                ) VALUES (
+                    visitor_seq.NEXTVAL, :full_name, :company, :purpose, :host, :phone, :address,
+                    :nationality, 'WAITING_FOR_PHOTO', :req_by, :valid_from, :valid_until, 'All Blocks'
+                )
+            """
+            cursor.execute(sql_vis, {
+                'full_name': req.visitorName,
+                'company': req.organisation,
+                'purpose': req.purpose,
+                'host': req.officerToMeet,
+                'phone': req.mobile,
+                'address': req.companyAddress,
+                'nationality': req.visitorCategory,
+                'req_by': req.requestedBy,
+                'valid_from': req.validFrom,
+                'valid_until': req.validUpto
+            })
+
+            conn.commit()
+            conn.close()
+            return {"status": "success", "message": "Pre-Registration submitted successfully!"}
+        except Exception as e:
+            if conn: conn.close()
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+    # Fallback/Mock Mode
+    global MOCK_ID_COUNTER
+    mock_visitor = {
+        "id": MOCK_ID_COUNTER,
+        "fullName": req.visitorName,
+        "companyName": req.organisation,
+        "hostName": req.officerToMeet,
+        "phoneNumber": req.mobile,
+        "purposeOfVisit": req.purpose,
+        "requestedBy": req.requestedBy,
+        "validFromDate": req.validFrom,
+        "validUntilDate": req.validUpto,
+        "aadhaarNumber": req.aadhaarNumber,
+        "passportDetails": req.passportDetails,
+        "status": 'WAITING_FOR_PHOTO'
+    }
+    MOCK_VISITORS_DB.append(mock_visitor)
+    MOCK_ID_COUNTER += 1
+    return {"status": "success", "message": "Pre-Registration submitted successfully (Mock Mode)!"}
 
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 if os.path.exists(frontend_dir):

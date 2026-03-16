@@ -2,7 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Set default dates
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('visitDate').value = today;
+    document.getElementById('validFromDate').value = today;
+    document.getElementById('validUntilDate').value = today;
 
     // Fetch Scheduled Visitors (Pre-filled by Host)
     const scheduledVisitorSelect = document.getElementById('scheduledVisitor');
@@ -291,7 +292,9 @@ function clearForm() {
     document.getElementById('visitorRegistrationForm').reset();
 
     // Reset defaults
-    document.getElementById('visitDate').value = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('validFromDate').value = today;
+    document.getElementById('validUntilDate').value = today;
     document.getElementById('photoBase64').value = "";
 
     // Reset displays

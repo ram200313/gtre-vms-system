@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>GTRE VMS SYSTEM - Reception Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .search-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .visitor-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            padding: 20px;
+            border-top: 4px solid var(--primary-blue);
+        }
+
+        .visitor-card h3 {
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .visitor-card p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        #webcamPreview {
+            width: 100%;
+            border-radius: 8px;
+            background: #000;
+            margin-bottom: 15px;
+        }
+
+        @media print {
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+            }
+
+            /* Hide ALL elements except the pass modal */
+            body>*:not(#passModal) {
+                display: none !important;
+            }
+
+            .sidebar,
+            .top-header,
+            .dashboard-content,
+            .btn-print-controls {
+                display: none !important;
+            }
+
+            #passModal {
+                display: block !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                background: white !important;
+                visibility: visible !important;
+                z-index: 9999 !important;
+            }
+
+            /* Reset modal content for print */
+            #passModal .modal-content {
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                max-width: none !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                transform: none !important;
+            }
+
+            #passCardPrintable {
+                display: block !important;
+                visibility: visible !important;
+            }
+
+            .visitor-pass-gtre {
+                border: 2px solid #000 !important;
+                margin: 20px auto !important;
+                box-shadow: none !important;
+                display: flex !important;
+            }
+        }
+
+        /* DRDO Pass Styling */
+        .visitor-pass-gtre {
+            width: 800px;
+            height: 500px;
+            background: white;
+            border: 2px solid #000;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Inter', sans-serif;
+            color: #000;
+            position: relative;
+            box-sizing: border-box;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .pass-header {
+            display: grid;
+            grid-template-columns: 100px 1fr 180px;
+            align-items: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+
+        .pass-logo {
+            width: 90px;
+            height: 90px;
+        }
+
+        .pass-title {
+            text-align: center;
+        }
+
+        .pass-title h4 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .pass-title p {
+            margin: 2px 0 0 0;
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .pass-sub-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 15px;
+            font-weight: 700;
+            margin-top: 8px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+        }
+
+        .pass-no {
+            text-align: right;
+            line-height: 1.3;
+        }
+
+        .pass-body {
+            display: grid;
+            grid-template-columns: 1fr 240px;
+            gap: 25px;
+            flex-grow: 1;
+            margin-top: 15px;
+            overflow: visible;
+        }
+
+        .pass-details {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .pass-detail-row {
+            display: grid;
+            grid-template-columns: 210px 20px 1fr;
+            font-size: 16px;
+            line-height: 1.3;
+        }
+
+        .pass-detail-label {
+            font-weight: 600;
+        }
+
+        .pass-detail-label span {
+            display: block;
+            font-size: 13px;
+            color: #444;
+            margin-top: -2px;
+        }
+
+        .pass-photo-area {
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pass-visitor-photo {
+            width: 150px;
+            height: 180px;
+            border: 1px solid #000;
+            object-fit: cover;
+            margin-bottom: 8px;
+        }
+
+        .pass-visitor-info {
+            width: 100%;
+            font-size: 13px;
+            line-height: 1.3;
+            text-align: center;
+        }
+
+        .pass-visitor-info .label {
+            display: block;
+            font-weight: 600;
+            color: #444;
+        }
+
+        .pass-visitor-info .value {
+            font-weight: 800;
+            font-size: 15px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .pass-footer {
+            border-top: 1px solid #000;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .pass-footer-text {
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        .pass-timestamp {
+            font-size: 10px;
+            color: #444;
+            margin-top: 4px;
+        }
+
+        .btn-print-controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+    </style>
+    <script src="js/auth.js?v=8"></script>
+</head>
+
+<body>
+
+    <div class="layout-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h2>VMS SYSTEM</h2>
+                <span class="badge offline">OFFLINE MODE</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-gauge"></i> Dashboard
+                </a>
+                <div class="nav-label"
+                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Officer Portal</div>
+                <a href="visitor_request.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i> Pre-Registration
+                </a>
+                <a href="officer_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-list-check"></i> My Visitors
+                </a>
+                <div class="nav-label"
+                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Reception & Security</div>
+                <a href="reception_dashboard.html" class="nav-item active">
+                    <i class="fa-solid fa-camera"></i> Reception Dashboard
+                </a>
+                <a href="todays_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-users"></i> Today's Visitors
+                </a>
+                <a href="attendance.html" class="nav-item">
+                    <i class="fa-solid fa-user-check"></i> Regular Attendance
+                </a>
+                <a href="gate_scanners.html" class="nav-item">
+                    <i class="fa-solid fa-door-open"></i> Gate Scanners
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Reception Area: Visitor Processing</h1>
+                </div>
+                <div class="header-user">
+                    <div class="user-info">
+                        <span class="user-role">Receptionist</span>
+                        <span class="user-name">jayram v</span>
+                    </div>
+                    <div class="avatar">JV</div>
+
+                    <button onclick="systemLogout()" class="btn btn-secondary"
+                        style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                        <i class="fa-solid fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <div class="search-container">
+                    <input type="text" id="searchInput" class="search-input"
+                        placeholder="Search pending visitors by Name or Phone...">
+                    <button class="btn btn-primary" onclick="searchVisitors()"><i class="fa-solid fa-search"></i>
+                        Search</button>
+                </div>
+
+                <h3 style="margin-bottom: 20px; color: var(--text-main);">Search Results</h3>
+                <div id="resultsGrid" class="grid-container">
+                    <!-- Dynamic visitor cards appear here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Photo Capture Modal -->
+    <div class="modal" id="captureModal">
+        <div class="modal-content">
+            <h3><i class="fa-solid fa-camera"></i> Capture Visitor Photo</h3>
+            <p style="margin-bottom:15px; color:#666;">Align face clearly in the frame.</p>
+            <video id="webcamPreview" autoplay playsinline></video>
+            <canvas id="photoCanvas" style="display: none;"></canvas>
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-secondary" onclick="closeCaptureModal()" style="flex:1;">Cancel</button>
+                <button class="btn btn-primary" id="takePhotoBtn" style="flex:1;" onclick="captureAndSubmt()">Take Photo
+                    & Print Pass</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pass Generation Modal -->
+    <div class="modal" id="passModal">
+        <div class="modal-content"
+            style="background:transparent; box-shadow:none; max-width: 950px; padding: 40px; width: auto;">
+            <div id="passCardPrintable">
+                <div class="visitor-pass-gtre" id="passCard">
+                    <!-- Header -->
+                    <div class="pass-header">
+                        <img src="img/gtre_logo.png" class="pass-logo" alt="DRDO Logo">
+                        <div class="pass-title">
+                            <h4>गैस टरबाइन अनुसंधान स्थापना</h4>
+                            <p>Gas Turbine Research Establishment</p>
+                            <div class="pass-sub-header">
+                                <div style="text-align:left;">आगंतुक पास<br>Visitor Pass</div>
+                                <div class="pass-no">
+                                    पास संख्या<br>Pass No. <span id="gtrePassNo">2026-0000</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="pass-body">
+                        <div class="pass-details">
+                            <div class="pass-detail-row">
+                                <div class="pass-detail-label">पहलकर्ता<span>Initiated by</span></div>
+                                <span>:</span>
+                                <span id="gtreInitiatedBy">N/A</span>
+                            </div>
+                            <div class="pass-detail-row">
+                                <div class="pass-detail-label">भेंटकर्ता अधिकारी<span>Officer to meet</span></div>
+                                <span>:</span>
+                                <span id="gtreOfficer">N/A</span>
+                            </div>
+                            <div class="pass-detail-row">
+                                <div class="pass-detail-label">विभाग<span>Department</span></div>
+                                <span>:</span>
+                                <span id="gtreDepartment">GTRE HQ</span>
+                            </div>
+                            <div class="pass-detail-row">
+                                <div class="pass-detail-label">प्रयोजन<span>Purpose</span></div>
+                                <span>:</span>
+                                <span id="gtrePurpose">Official Visit</span>
+                            </div>
+                            <div class="pass-detail-row">
+                                <div class="pass-detail-label">जारी करने की तिथि<span>Date of Issue</span></div>
+                                <span>:</span>
+                                <span id="gtreDateIssue">N/A</span>
+                            </div>
+                            <div class="pass-detail-row" style="margin-top: 20px;">
+                                <div class="pass-detail-label">आगंतुक के हस्ताक्षर<span>Visitor's Signature</span></div>
+                                <span>:</span>
+                                <span>___________________</span>
+                            </div>
+                        </div>
+
+                        <div class="pass-photo-area">
+                            <img id="gtrePassPhoto" src="" class="pass-visitor-photo">
+                            <div class="pass-visitor-info">
+                                <span class="label">आगंतुक का नाम/Visitor Name</span>
+                                <div class="value" id="gtrePassName">VISITOR NAME</div>
+                                <span class="label">संगठन/Organisation</span>
+                                <div class="value" id="gtrePassOrg">ORGANISATION</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="pass-footer">
+                        <div class="pass-footer-text">
+                            सूचना: यह पास केवल जारी तिथि के लिए वैध है। आगंतुक जिस अधिकारी से मिले, उससे आने/खानगी का
+                            सही समय दर्ज करा ले।
+                        </div>
+                        <div class="pass-timestamp" style="text-align: left;">
+                            Printed On: <span id="gtrePrintTime"></span> | Ref: GTRE-v1.3
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-print-controls"
+                style="margin-top: 40px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 25px;">
+                <button class="btn btn-secondary" onclick="closePassModal()" style="padding: 12px 24px;">Close</button>
+                <button class="btn btn-primary" onclick="window.print()" style="padding: 12px 30px;">
+                    <i class="fa-solid fa-print"></i> Print Visitor Pass
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentVisitorId = null;
+        let stream = null;
+
+        document.getElementById('searchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') { searchVisitors(); }
+        });
+
+        async function searchVisitors() {
+            const q = document.getElementById('searchInput').value.trim();
+            const grid = document.getElementById('resultsGrid');
+            grid.innerHTML = '<p><i class="fa-solid fa-spinner fa-spin"></i> Searching...</p>';
+
+            try {
+                const res = await fetch(`/api/visitors/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+
+                if (data.data && data.data.length > 0) {
+                    renderSearchResults(data.data);
+                } else if (q === "") {
+                    // If search is empty, clear the grid
+                    grid.innerHTML = '<p style="color: #64748b; font-style: italic;">Enter a name or phone number to search for visitors.</p>';
+                } else {
+                    grid.innerHTML = '<p>No waiting visitors found.</p>';
+                    // Fallback to local storage mock search if API fails or returns empty
+                    useMockSearch(q);
+                }
+            } catch (e) {
+                console.warn("Search API failed, using mock data");
+                useMockSearch(q);
+            }
+        }
+
+        function useMockSearch(query = "") {
+            const grid = document.getElementById('resultsGrid');
+            if (!query) {
+                grid.innerHTML = '<p style="color: #64748b; font-style: italic;">Enter a name or phone number to search.</p>';
+                return;
+            }
+
+            // Get submitted visitors from localStorage
+            const localVisitors = JSON.parse(localStorage.getItem('pendingVisitors') || '[]');
+
+            const filtered = localVisitors.filter(v =>
+                (v.fullName && v.fullName.toLowerCase().includes(query.toLowerCase())) ||
+                (v.phoneNumber && v.phoneNumber.includes(query))
+            );
+
+            if (filtered.length > 0) {
+                renderSearchResults(filtered);
+            } else {
+                grid.innerHTML = `<p>No results found for "${query}". Please ensure the visitor has pre-registered.</p>`;
+            }
+        }
+
+        function renderSearchResults(visitors) {
+            const grid = document.getElementById('resultsGrid');
+            grid.innerHTML = '';
+            visitors.forEach(v => {
+                // Ensure all fields are preserved
+                const visitorDataStr = JSON.stringify(v).replace(/'/g, "&apos;");
+                grid.innerHTML += `
+                    <div class="visitor-card">
+                        <h3>${v.fullName}</h3>
+                        <p><i class="fa-solid fa-building"></i> ${v.companyName || 'N/A'}</p>
+                        <p><i class="fa-solid fa-phone"></i> ${v.phoneNumber}</p>
+                        <p><i class="fa-solid fa-user-tie"></i> Host: ${v.hostName || v.officerToMeet}</p>
+                        <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick='openCaptureModal(${visitorDataStr})'>
+                            <i class="fa-solid fa-camera"></i> Capture Photo
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        async function openCaptureModal(visitorData) {
+            currentVisitorId = visitorData.id;
+            window.lastSelectedVisitor = visitorData;
+
+            document.getElementById('captureModal').classList.add('active');
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('webcamPreview').srcObject = stream;
+            } catch (err) {
+                console.error("Webcam Error:", err);
+                alert("Cannot access webcam. Using placeholder for demo.");
+            }
+        }
+
+        function closeCaptureModal() {
+            document.getElementById('captureModal').classList.remove('active');
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+        }
+
+        async function captureAndSubmt() {
+            const video = document.getElementById('webcamPreview');
+            const canvas = document.getElementById('photoCanvas');
+            let dataUrl = "https://via.placeholder.com/300x300.png?text=Visitor+Photo"; // Default placeholder
+
+            if (stream && video.videoWidth > 0) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            }
+
+            const btn = document.getElementById('takePhotoBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/visitors/${currentVisitorId}/capture_photo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ photoBase64: dataUrl })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    closeCaptureModal();
+                    // Merge API response with last selected data to ensure no fields are lost
+                    const finalPassData = { ...window.lastSelectedVisitor, ...data.data };
+                    showPass(finalPassData, dataUrl);
+                    searchVisitors(); // refresh grid
+                } else {
+                    throw new Error("API Capture Failed");
+                }
+            } catch (e) {
+                console.warn('Capture API failed, using mock pass');
+                setTimeout(() => {
+                    closeCaptureModal();
+                    const mockPassData = window.lastSelectedVisitor || {
+                        fullName: "DEMO VISITOR",
+                        companyName: "Demo Corp",
+                        hostName: "OFFICER NAME",
+                        requestedBy: "ADMIN",
+                        purpose: "Official Visit"
+                    };
+
+                    showPass(mockPassData, dataUrl);
+                }, 800);
+            } finally {
+                btn.innerHTML = "Take Photo & Print Pass";
+                btn.disabled = false;
+            }
+        }
+
+        function showPass(passData, photoUrl) {
+            // Auto-generate Pass Number: currentYear-SequentialNumber
+            const currentYear = new Date().getFullYear();
+            const lastPassNo = parseInt(localStorage.getItem('lastPassSeq') || '1638');
+            const nextPassNo = lastPassNo + 1;
+            localStorage.setItem('lastPassSeq', nextPassNo);
+
+            const passId = `${currentYear}-${nextPassNo}`;
+            const today = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY
+            const now = new Date().toLocaleString();
+
+            // Populate GTRE Pass Fields
+            document.getElementById('gtrePassNo').innerText = passId;
+            document.getElementById('gtreInitiatedBy').innerText = passData.requestedBy || passData.requested_by || passData.initiatedBy || 'ADMIN';
+            document.getElementById('gtreOfficer').innerText = passData.hostName || passData.officerToMeet || 'M. SINGH';
+            document.getElementById('gtreDepartment').innerText = passData.department || 'GTRE HQ';
+            document.getElementById('gtrePurpose').innerText = passData.purpose || passData.purposeOfVisit || 'Official Visit';
+            document.getElementById('gtreDateIssue').innerText = today;
+            document.getElementById('gtrePassName').innerText = (passData.fullName || 'N/A').toUpperCase();
+            document.getElementById('gtrePassOrg').innerText = (passData.companyName || passData.organisation || 'N/A').toUpperCase();
+            document.getElementById('gtrePassPhoto').src = photoUrl;
+            document.getElementById('gtrePrintTime').innerText = now;
+
+            document.getElementById('passModal').classList.add('active');
+        }
+
+        function closePassModal() {
+            document.getElementById('passModal').classList.remove('active');
+        }
+
+        // Initial state: empty grid with instruction
+        document.getElementById('resultsGrid').innerHTML = '<p style="color: #64748b; font-style: italic;">Enter a name or phone number in the search bar to find visitors.</p>';
+    </script>
+</body>
+
+</html>

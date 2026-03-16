@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Registration - GTRE VMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="js/auth.js?v=7"></script>
+    <style>
+        .visitor-request-header {
+            background-color: #2563eb;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .visitor-request-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .two-column-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .form-section-title {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #334155;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            color: #1e293b;
+        }
+
+        .form-group input[readonly] {
+            background-color: #f8fafc;
+            color: #64748b;
+            cursor: not-allowed;
+        }
+
+        .submit-container {
+            margin-top: 30px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn-submit {
+            background-color: #2563eb;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-submit:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-submit:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+
+        @media (max-width: 768px) {
+            .two-column-form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layout-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h2>VMS SYSTEM</h2>
+                <span class="badge offline">OFFLINE MODE</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-gauge"></i> Dashboard
+                </a>
+                <div class="nav-label"
+                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Officer Portal</div>
+                <a href="visitor_request.html" class="nav-item active">
+                    <i class="fa-solid fa-user-plus"></i> Pre-Registration
+                </a>
+                <a href="officer_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-list-check"></i> My Visitors
+                </a>
+                <div class="nav-label"
+                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Reception & Security</div>
+                <a href="reception_dashboard.html" class="nav-item">
+                    <i class="fa-solid fa-camera"></i> Reception Dashboard
+                </a>
+                <a href="todays_visitors.html" class="nav-item">
+                    <i class="fa-solid fa-users"></i> Today's Visitors
+                </a>
+                <a href="attendance.html" class="nav-item">
+                    <i class="fa-solid fa-user-check"></i> Regular Attendance
+                </a>
+                <a href="gate_scanners.html" class="nav-item">
+                    <i class="fa-solid fa-door-open"></i> Gate Scanners
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>New Pre-Registration</h1>
+                </div>
+                <div class="header-user">
+                    <div class="user-info">
+                        <span class="user-role">Officer Portal</span>
+                        <span class="user-name" id="currentUserDisplay">Officer</span>
+                    </div>
+                    <div class="avatar" style="background-color: var(--primary-blue);">OP</div>
+                    <button onclick="systemLogout()" class="btn btn-secondary"
+                        style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                        <i class="fa-solid fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <div class="visitor-request-header">
+                    <h2>Pre-Registration</h2>
+                    <div id="initStatus"></div>
+                </div>
+
+                <div class="form-container">
+                    <form id="visitorRequestForm">
+                        <div class="two-column-form">
+                            <!-- Left Column -->
+                            <div class="form-column">
+                                <div class="form-group">
+                                    <label>Requisition No.</label>
+                                    <input type="text" id="requisitionNumber" name="requisitionNumber" readonly
+                                        placeholder="Generating...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Requested By</label>
+                                    <input type="text" id="requestedBy" name="requestedBy" readonly
+                                        placeholder="Loading officer info...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Date of Request</label>
+                                    <input type="text" id="requestDate" name="requestDate" readonly
+                                        placeholder="Auto-filling...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Officer to Meet</label>
+                                    <select id="officerToMeet" name="officerToMeet" required>
+                                        <option value="">Select Officer...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Location</label>
+                                    <input type="text" id="location" name="location" readonly
+                                        placeholder="Select officer first">
+                                </div>
+                                <div class="form-group">
+                                    <label>Purpose</label>
+                                    <select id="purpose" name="purpose" required>
+                                        <option value="">Select Purpose...</option>
+                                        <option value="Official Meeting">Official Meeting</option>
+                                        <option value="Interview">Interview</option>
+                                        <option value="Delivery">Delivery</option>
+                                        <option value="Vendor Meeting">Vendor Meeting</option>
+                                        <option value="Maintenance">Maintenance</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Valid From</label>
+                                    <input type="date" id="validFrom" name="validFrom" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Valid Upto</label>
+                                    <input type="date" id="validUpto" name="validUpto" required>
+                                </div>
+                            </div>
+
+                            <!-- Right Column -->
+                            <div class="form-column">
+                                <div class="form-group">
+                                    <label>Visitor Category</label>
+                                    <select id="visitorCategory" name="visitorCategory" required>
+                                        <option value="Indian Visitor">Indian Visitor</option>
+                                        <option value="Foreign Visitor">Foreign Visitor</option>
+                                    </select>
+                                </div>
+                                <div id="indianFields" class="form-group">
+                                    <label>Aadhaar Number</label>
+                                    <input type="text" id="aadhaarNumber" name="aadhaarNumber"
+                                        placeholder="12-digit Aadhaar Number">
+                                </div>
+                                <div id="foreignFields" class="form-group hidden">
+                                    <label>Passport Details</label>
+                                    <textarea id="passportDetails" name="passportDetails" rows="2"
+                                        placeholder="Passport Number, Issue/Expiry Date"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Visitor Name</label>
+                                    <input type="text" id="visitorName" name="visitorName" required
+                                        placeholder="Full Name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Organisation</label>
+                                    <input type="text" id="organisation" name="organisation" required
+                                        placeholder="Company / Org Name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Company Address</label>
+                                    <textarea id="companyAddress" name="companyAddress" required rows="2"
+                                        placeholder="Full Address"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="tel" id="phone" name="phone" required
+                                        placeholder="Phone/Office Number">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mobile / Residence Phone</label>
+                                    <input type="tel" id="mobile" name="mobile" required placeholder="Mobile Number">
+                                </div>
+                                <div class="form-group">
+                                    <label>Remarks (optional)</label>
+                                    <textarea id="remarks" name="remarks" rows="2"
+                                        placeholder="Additional details"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="submit-container">
+                            <button type="submit" id="btnSubmit" class="btn-submit">submit</button>
+                        </div>
+                    </form>
+                    <div id="submitStatus" style="margin-top: 20px; text-align: right;"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/visitor_request.js?v=11"></script>
+</body>
+
+</html>

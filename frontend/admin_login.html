@@ -143,6 +143,7 @@
         <a href="new_visitor.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Return to Front Desk</a>
     </div>
 
+    <script src="js/auth.js?v=7"></script>
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -160,22 +161,18 @@
             };
 
             try {
-                const res = await fetch('/api/admin/login', {
+                const data = await fetchAPI('/api/admin/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.status === 'success') {
-                        // Store mock token securely in session storage
-                        sessionStorage.setItem('adminToken', data.token);
-                        sessionStorage.setItem('adminRole', data.role);
+                if (data.status === 'success') {
+                    // Store mock token securely in session storage
+                    sessionStorage.setItem('adminToken', data.token);
+                    sessionStorage.setItem('adminRole', data.role);
 
-                        // Redirect to the dashboard
-                        window.location.href = 'admin_dashboard.html';
-                    }
+                    // Redirect to the dashboard
+                    window.location.href = 'admin_dashboard.html';
                 } else {
                     errorMsg.textContent = "Invalid Administrator ID or Security Password.";
                     errorMsg.classList.add('active');

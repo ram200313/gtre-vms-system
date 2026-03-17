@@ -145,9 +145,9 @@
                 <div class="header-user">
                     <div class="user-info">
                         <span class="user-role">System Administrator</span>
-                        <span class="user-name">jayram v</span>
+                        <span class="user-name" id="currentUserDisplay">Admin</span>
                     </div>
-                    <div class="avatar" style="background-color: var(--primary-blue);">JV</div>
+                    <div class="avatar" style="background-color: var(--primary-blue);">AD</div>
 
                     <button onclick="systemLogout()" class="btn btn-secondary"
                         style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
@@ -219,8 +219,7 @@
 
         async function fetchDashboardData() {
             try {
-                const res = await fetch('/api/dashboard/stats');
-                const result = await res.json();
+                const result = await fetchAPI('/api/dashboard/stats');
 
                 if (result.status === 'success') {
                     const stats = result.data;

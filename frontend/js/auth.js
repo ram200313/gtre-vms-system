@@ -1,4 +1,32 @@
 // js/auth.js
+const API_BASE_URL = 'http://localhost:8000';
+
+/**
+ * Global helper to fetch from the backend API, handle port mismatch,
+ * and provide consistent error handling.
+ */
+window.fetchAPI = async function (endpoint, options = {}) {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
+    // Default headers
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    try {
+        const response = await fetch(url, { ...options, headers });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (err) {
+        console.error(`API Fetch Error (${endpoint}):`, err);
+        throw err;
+    }
+};
+
 (function () {
     const currentPagePath = window.location.pathname;
     const currentPage = currentPagePath.split('/').pop() || 'index.html';
@@ -25,6 +53,25 @@
             }
         }
     }
+
+    // Dynamic Header Update
+    document.addEventListener('DOMContentLoaded', () => {
+        const portal = currentPagePath.includes('reception_dashboard.html') ||
+            currentPagePath.includes('todays_visitors.html') ||
+            currentPagePath.includes('attendance.html') ||
+            currentPagePath.includes('gate_scanners.html') ? 'receptionAuth' : 'officerAuth';
+
+        const name = sessionStorage.getItem(portal + '_name');
+        if (name) {
+            document.querySelectorAll('.user-name').forEach(el => {
+                el.textContent = name;
+            });
+            const avatar = document.querySelector('.avatar');
+            if (avatar) {
+                avatar.textContent = name.substring(0, 2).toUpperCase();
+            }
+        }
+    });
 })();
 
 function injectAuthModal(portalName, expectedUser, authKey, expectedPass) {
@@ -94,11 +141,13 @@ window.verifyRoleAuth = function (expectedUser, authKey, expectedPass) {
 
     if (uMatch && pMatch) {
         sessionStorage.setItem(authKey, 'true');
-        sessionStorage.setItem('officerName', u); // Store the name for the portal
+        // Store name specifically for this portal to avoid conflicts
+        sessionStorage.setItem(authKey + '_name', u);
+
         document.body.style.overflow = 'auto'; // Restore scroll
         document.getElementById('roleAuthOverlay').remove();
         // Notify other scripts that authentication is complete
-        window.dispatchEvent(new CustomEvent('secondaryAuthSuccess', { detail: { username: u } }));
+        window.dispatchEvent(new CustomEvent('secondaryAuthSuccess', { detail: { username: u, authKey: authKey } }));
     } else {
         document.getElementById('roleError').style.display = 'block';
         document.getElementById('rolePass').value = '';

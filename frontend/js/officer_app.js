@@ -95,14 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
         submitStatus.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Saving Pre-Registration Data Offline...';
 
         try {
-            const response = await fetch('/api/visitors/officer_register', {
+            const result = await fetchAPI('/api/visitors/officer_register', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {}
             });
 
-            const result = await response.json();
-
-            if (response.ok && (result.status === 'success' || result.status === 'warning')) {
+            if (result.status === 'success' || result.status === 'warning') {
                 submitStatus.className = 'submit-status success';
                 submitStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${result.message}`;
                 e.target.reset();

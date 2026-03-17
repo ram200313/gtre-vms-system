@@ -346,9 +346,9 @@
                 <div class="header-user">
                     <div class="user-info">
                         <span class="user-role">Receptionist</span>
-                        <span class="user-name">jayram v</span>
+                        <span class="user-name" id="currentUserDisplay">Receptionist</span>
                     </div>
-                    <div class="avatar">JV</div>
+                    <div class="avatar">RC</div>
 
                     <button onclick="systemLogout()" class="btn btn-secondary"
                         style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
@@ -494,8 +494,7 @@
             grid.innerHTML = '<p><i class="fa-solid fa-spinner fa-spin"></i> Searching...</p>';
 
             try {
-                const res = await fetch(`/api/visitors/search?q=${encodeURIComponent(q)}`);
-                const data = await res.json();
+                const data = await fetchAPI(`/api/visitors/search?q=${encodeURIComponent(q)}`);
 
                 if (data.data && data.data.length > 0) {
                     renderSearchResults(data.data);
@@ -595,12 +594,10 @@
             btn.disabled = true;
 
             try {
-                const res = await fetch(`/api/visitors/${currentVisitorId}/capture_photo`, {
+                const data = await fetchAPI(`/api/visitors/${currentVisitorId}/capture_photo`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ photoBase64: dataUrl })
                 });
-                const data = await res.json();
 
                 if (data.status === 'success') {
                     closeCaptureModal();

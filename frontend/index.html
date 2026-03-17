@@ -155,6 +155,7 @@
         </div>
     </div>
 
+    <script src="js/auth.js?v=7"></script>
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -172,23 +173,19 @@
             };
 
             try {
-                const res = await fetch('/api/login', {
+                const data = await fetchAPI('/api/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.status === 'success') {
-                        sessionStorage.setItem('systemToken', data.token);
-                        sessionStorage.setItem('systemRole', data.role);
-                        window.location.href = 'dashboard.html';
-                        return;
-                    }
+                if (data.status === 'success') {
+                    sessionStorage.setItem('systemToken', data.token);
+                    sessionStorage.setItem('systemRole', data.role);
+                    window.location.href = 'dashboard.html';
+                    return;
                 }
 
-                // If response not OK, try fallback
+                // If success not returned, try fallback
                 handleMockLogin(payload, errorMsg);
 
             } catch (err) {

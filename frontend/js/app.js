@@ -10,8 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let scheduledData = [];
 
     if (scheduledVisitorSelect) {
-        fetch('/api/visitors/scheduled')
-            .then(res => res.json())
+        fetchAPI('/api/visitors/scheduled')
             .then(data => {
                 if (data.status === 'success') {
                     scheduledData = data.data;
@@ -254,27 +253,21 @@ async function submitForm(actionStatus) {
 
     try {
         // Send to FastAPI Backend
-        const response = await fetch('/api/visitors/register', {
+        const result = await fetchAPI('/api/visitors/register', {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {} // No Content-Type for FormData, browser will set it
         });
 
-        const result = await response.json();
+        if (result.status === 'success' || result.status === 'warning') {
+            submitStatus.textContent = result.message;
+            submitStatus.className = "submit-status success";
 
-        if (response.ok) {
-            if (result.status === 'success' || result.status === 'warning') {
-                submitStatus.textContent = result.message;
-                submitStatus.className = "submit-status success";
-
-                setTimeout(() => {
-                    clearForm();
-                }, 3000);
-            } else if (result.status === 'error') {
-                submitStatus.textContent = result.message;
-                submitStatus.className = "submit-status error";
-            }
+            setTimeout(() => {
+                clearForm();
+            }, 3000);
         } else {
-            submitStatus.textContent = "Error: " + (result.detail || "Server error occurred");
+            submitStatus.textContent = "Error: " + (result.detail || result.message || "Submission failed");
             submitStatus.className = "submit-status error";
         }
 

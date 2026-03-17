@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Fetch initialization data
     async function initPage() {
         try {
-            // Retrieve session authentication info
-            const username = sessionStorage.getItem('officerName');
+            // Retrieve session authentication info specifically for Officer Portal
+            const username = sessionStorage.getItem('officerAuth_name');
 
             if (!username) return; // Wait for auth if not present
 
@@ -24,8 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Initializing...';
 
             try {
-                const response = await fetch('/api/visitor-request/init');
-                const result = await response.json();
+                const result = await fetchAPI('/api/visitor-request/init');
 
                 if (result.status === 'success') {
                     document.getElementById('requisitionNumber').value = result.data.requisitionNumber;
@@ -57,8 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Fetch officers list
     async function fetchOfficers() {
         try {
-            const response = await fetch('/api/officers');
-            const result = await response.json();
+            const result = await fetchAPI('/api/officers');
 
             if (result.status === 'success') {
                 renderOfficers(result.data);
@@ -145,22 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
         submitStatus.innerHTML = '<span style="color: #2563eb;"><i class="fa-solid fa-cloud-arrow-up"></i> Processing request...</span>';
 
         try {
-            const response = await fetch('/api/visitor-request/submit', {
+            const result = await fetchAPI('/api/visitor-request/submit', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(data)
             });
-
-            let result;
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                result = await response.json();
-            } else {
-                // Handle non-JSON response (like 404 HTML from simple server)
-                throw new Error("API not found, using mock submission");
-            }
 
             if (result.status === 'success') {
                 handleSuccess(result.message);
@@ -215,8 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
         initPage();
     }
 
-    window.addEventListener('secondaryAuthSuccess', () => {
-        initPage();
+    window.addEventListener('secondaryAuthSuccess', (e) => {
+        if (e.detail.authKey === 'officerAuth') {
+            initPage();
+        }
     });
 
     fetchOfficers();

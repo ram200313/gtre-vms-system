@@ -1,5 +1,7 @@
 // js/auth.js
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : ''; // Relative path for production on Render
 
 /**
  * Global helper to fetch from the backend API, handle port mismatch,

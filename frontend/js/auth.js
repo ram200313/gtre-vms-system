@@ -1,6 +1,7 @@
-// js/auth.js
-// Hardcoded to local python API server to ensure file:/// execution works flawlessly
-const API_BASE_URL = 'http://127.0.0.1:8000';
+// Initialize API_BASE_URL dynamically to support both local testing and Cloud (Render) Deployment
+const API_BASE_URL = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.protocol === 'file:') 
+    ? 'http://127.0.0.1:8000' 
+    : '';
 
 /**
  * Global helper to fetch from the backend API, handle port mismatch,

@@ -6,4 +6,5 @@ python-multipart
 oracledb
 opencv-contrib-python-headless
 pyjwt
-passlib[bcrypt]
+passlib
+bcrypt==3.2.2

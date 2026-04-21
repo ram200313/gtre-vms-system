@@ -7,8 +7,7 @@ env/
 .env
 .idea/
 .vscode/
-*.db
-*.sqlite3
+
 server.py
 update_urls.py
 replace_text.py

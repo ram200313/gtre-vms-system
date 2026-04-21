@@ -143,7 +143,7 @@
         <a href="new_visitor.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Return to Front Desk</a>
     </div>
 
-    <script src="js/auth.js?v=7"></script>
+    <script src="js/auth.js?v=11"></script>
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -161,32 +161,32 @@
             };
 
             try {
-                const data = await fetchAPI('/api/admin/login', {
+                const data = await fetchAPI('/api/login', {
                     method: 'POST',
                     body: JSON.stringify(payload)
                 });
 
                 if (data.status === 'success') {
-                    // Store mock token securely in session storage
-                    sessionStorage.setItem('adminToken', data.token);
-                    sessionStorage.setItem('adminRole', data.role);
+                    // Check if role is admin to enforce portal restrictions
+                    if (data.role !== 'admin') {
+                        throw new Error("This portal is restricted to Administrators only.");
+                    }
+                    
+                    // Proceed securely
+                    sessionStorage.setItem('systemToken', data.token);
+                    sessionStorage.setItem('systemRole', data.role);
+                    sessionStorage.setItem('fullName', data.fullName);
+                    sessionStorage.setItem('empid', data.empid);
+                    sessionStorage.setItem('allowedScreens', JSON.stringify(data.screens || []));
 
-                    // Redirect to the dashboard
                     window.location.href = 'admin_dashboard.html';
                 } else {
-                    errorMsg.textContent = "Invalid Administrator ID or Security Password.";
-                    errorMsg.classList.add('active');
+                    throw new Error(data.detail || "Authentication Failed.");
                 }
             } catch (err) {
                 console.error(err);
-                // Offline fallback mock evaluation
-                if (payload.username === "admin" && payload.password === "GTRE123") {
-                    sessionStorage.setItem('adminToken', "mock-offline-token");
-                    window.location.href = 'admin_dashboard.html';
-                } else {
-                    errorMsg.textContent = "Network error or Invalid Credentials.";
-                    errorMsg.classList.add('active');
-                }
+                errorMsg.textContent = err.message || "Network error or Invalid Credentials.";
+                errorMsg.classList.add('active');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Authenticate`;

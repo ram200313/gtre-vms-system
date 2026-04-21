@@ -291,7 +291,8 @@
             justify-content: center;
         }
     </style>
-    <script src="js/auth.js?v=8"></script>
+    <script src="js/auth.js?v=11"></script>
+    <script src="js/tesseract/tesseract.min.js"></script>
 </head>
 
 <body>
@@ -306,31 +307,33 @@
             </div>
 
             <nav class="sidebar-nav">
-                <a href="dashboard.html" class="nav-item">
+                <a href="dashboard.html" id="nav-dashboard" class="nav-item">
                     <i class="fa-solid fa-gauge"></i> Dashboard
                 </a>
-                <div class="nav-label"
-                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Officer Portal</div>
-                <a href="visitor_request.html" class="nav-item">
+                
+                <a href="admin_dashboard.html" id="nav-admin" class="nav-item">
+                    <i class="fa-solid fa-users-cog"></i> User Management
+                </a>
+
+                <div id="label-officer" class="nav-label" style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Officer Portal</div>
+                <a href="visitor_request.html" id="nav-pre-reg" class="nav-item">
                     <i class="fa-solid fa-user-plus"></i> Pre-Registration
                 </a>
-                <a href="officer_visitors.html" class="nav-item">
+                <a href="officer_visitors.html" id="nav-my-visitors" class="nav-item">
                     <i class="fa-solid fa-list-check"></i> My Visitors
                 </a>
-                <div class="nav-label"
-                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Reception & Security</div>
-                <a href="reception_dashboard.html" class="nav-item active">
+
+                <div id="label-reception" class="nav-label" style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Reception & Security</div>
+                <a href="reception_dashboard.html" id="nav-reception-dash" class="nav-item active">
                     <i class="fa-solid fa-camera"></i> Reception Dashboard
                 </a>
-                <a href="todays_visitors.html" class="nav-item">
+                <a href="todays_visitors.html" id="nav-todays-visitors" class="nav-item">
                     <i class="fa-solid fa-users"></i> Today's Visitors
                 </a>
-                <a href="attendance.html" class="nav-item">
+                <a href="attendance.html" id="nav-attendance" class="nav-item">
                     <i class="fa-solid fa-user-check"></i> Regular Attendance
                 </a>
-                <a href="gate_scanners.html" class="nav-item">
+                <a href="gate_scanners.html" id="nav-gate-scanners" class="nav-item">
                     <i class="fa-solid fa-door-open"></i> Gate Scanners
                 </a>
             </nav>
@@ -384,8 +387,7 @@
 
             <div style="display:flex; gap:10px;">
                 <button class="btn btn-secondary" onclick="closeCaptureModal()" style="flex:1;">Cancel</button>
-                <button class="btn btn-primary" id="takePhotoBtn" style="flex:1;" onclick="captureAndSubmt()">Take Photo
-                    & Print Pass</button>
+                <button class="btn btn-primary" id="takePhotoBtn" style="flex:1;" onclick="captureAndSubmt()">Take Photo & Scan ID</button>
             </div>
         </div>
     </div>
@@ -468,6 +470,107 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Page 2 -->
+                <div class="visitor-pass-gtre" id="passCardPage2" style="page-break-before: always; display: flex; flex-direction: column; justify-content: flex-start; padding: 20px;">
+                    <style>
+                        @media screen {
+                            #passCardPage2 { display: none !important; }
+                        }
+                        .page-2-outer {
+                            border: 1.5px solid #000;
+                            padding: 20px;
+                            flex-grow: 1;
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        .page-2-row {
+                            display: flex;
+                            align-items: center;
+                            margin-bottom: 22px;
+                        }
+                        .page-2-label {
+                            width: 38%;
+                            font-size: 13px;
+                            font-weight: 500;
+                            color: #000;
+                            text-align: left;
+                        }
+                        .page-2-boxes {
+                            width: 62%;
+                            display: flex;
+                            justify-content: space-between;
+                        }
+                        .page-2-box {
+                            width: 18%;
+                            height: 38px;
+                            border: 1px solid #777;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #222;
+                        }
+                    </style>
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px; text-align: left; padding-left: 5px;">Login to VMS</div>
+                    <div class="page-2-outer">
+                        <div style="margin-bottom: 25px; text-align: left; font-size: 13px; font-weight: 500; color: #000;">
+                            अनुरक्षक का नाम/ Name of Escort:
+                        </div>
+
+                        <div class="page-2-row">
+                            <div class="page-2-label">तिथि/Date:</div>
+                            <div class="page-2-boxes">
+                                <div class="page-2-box" id="gtrePassDate1"></div>
+                                <div class="page-2-box" id="gtrePassDate2"></div>
+                                <div class="page-2-box" id="gtrePassDate3"></div>
+                                <div class="page-2-box" id="gtrePassDate4"></div>
+                                <div class="page-2-box" id="gtrePassDate5"></div>
+                            </div>
+                        </div>
+
+                        <div class="page-2-row">
+                            <div class="page-2-label">बैज नं/Badge No</div>
+                            <div class="page-2-boxes">
+                                <div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div>
+                            </div>
+                        </div>
+
+                        <div class="page-2-row">
+                            <div class="page-2-label">जारी करने वाला/Issued By:</div>
+                            <div class="page-2-boxes">
+                                <div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div>
+                            </div>
+                        </div>
+
+                        <div class="page-2-row">
+                            <div class="page-2-label">प्रापक अधिकारी/ Receiving<br>Officer Signature</div>
+                            <div class="page-2-boxes">
+                                <div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div>
+                            </div>
+                        </div>
+
+                        <div class="page-2-row">
+                            <div class="page-2-label">आने का समय/Time in:</div>
+                            <div class="page-2-boxes">
+                                <div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div>
+                            </div>
+                        </div>
+
+                        <div class="page-2-row" style="margin-bottom: 10px;">
+                            <div class="page-2-label">जाने का समय/Time Out:</div>
+                            <div class="page-2-boxes">
+                                <div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div><div class="page-2-box"></div>
+                            </div>
+                        </div>
+
+                        <div style="flex-grow: 1;"></div>
+                        <div style="font-size: 11px; color: #555; line-height: 1.4; text-align: left;">
+                            NOTE:This pass is valid only for the date of issue. Visitor has to get correct time of entry and departure endorsed from the officer visited. Visiting hours upto 1630 hrs only.
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="btn-print-controls"
@@ -476,6 +579,47 @@
                 <button class="btn btn-primary" onclick="window.print()" style="padding: 12px 30px;">
                     <i class="fa-solid fa-print"></i> Print Visitor Pass
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ID Document Capture Modal -->
+    <div class="modal" id="idCaptureModal">
+        <div class="modal-content">
+            <h3 id="idCaptureTitle"><i class="fa-solid fa-id-card"></i> Scan Visitor ID Document</h3>
+            <div id="idScannerView">
+                <p style="margin-bottom:15px; color:#666;">Place ID card in front of the camera to verify and grant access.</p>
+                <video id="idWebcamPreview" autoplay playsinline style="width: 100%; border-radius: 8px; background: #000; margin-bottom: 15px;"></video>
+                <canvas id="idPhotoCanvas" style="display: none;"></canvas>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary" onclick="closeIDCaptureModal()" style="flex:1;">Cancel</button>
+                    <button class="btn btn-primary" id="captureIDBtn" style="flex:1;" onclick="captureIDAndVerify()">Capture & Verify ID</button>
+                </div>
+            </div>
+            <div id="idVerificationView" style="display: none; text-align: left;">
+                <p style="color: var(--success); font-weight: bold; margin-bottom: 15px; text-align: center;"><i class="fa-solid fa-check-circle"></i> ID Scanned Successfully</p>
+                
+                <div style="margin-bottom: 10px;">
+                    <label style="display:block; font-weight: 500; font-size: 14px; margin-bottom: 5px;">ID Type</label>
+                    <input type="text" id="verifyIdType" class="search-input" style="width:100%;" readonly>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="display:block; font-weight: 500; font-size: 14px; margin-bottom: 5px;">Extracted Name</label>
+                    <input type="text" id="verifyName" class="search-input" style="width:100%;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="display:block; font-weight: 500; font-size: 14px; margin-bottom: 5px;">ID Number</label>
+                    <input type="text" id="verifyIdNumber" class="search-input" style="width:100%;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight: 500; font-size: 14px; margin-bottom: 5px;">Date of Birth</label>
+                    <input type="text" id="verifyDob" class="search-input" style="width:100%;">
+                </div>
+                <input type="hidden" id="verifyPhotoPath">
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary" onclick="retryIDCapture()" style="flex: 1;">Retake Capture</button>
+                    <button class="btn btn-primary" id="confirmIDBtn" style="flex:2; background-color: var(--success); border-color: var(--success);" onclick="confirmIDAccess()">Match & Grant Access</button>
+                </div>
             </div>
         </div>
     </div>
@@ -561,7 +705,9 @@
             document.getElementById('captureModal').classList.add('active');
 
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                });
                 document.getElementById('webcamPreview').srcObject = stream;
             } catch (err) {
                 console.error("Webcam Error:", err);
@@ -601,10 +747,12 @@
 
                 if (data.status === 'success') {
                     closeCaptureModal();
-                    // Merge API response with last selected data to ensure no fields are lost
-                    const finalPassData = { ...window.lastSelectedVisitor, ...data.data };
-                    showPass(finalPassData, dataUrl);
-                    searchVisitors(); // refresh grid
+                    // Save for later after ID is scanned
+                    window.pendingPassData = { ...window.lastSelectedVisitor, ...data.data };
+                    window.pendingPhotoUrl = dataUrl;
+                    
+                    // Immediately open document scanning
+                    openIDCaptureModal();
                 } else {
                     throw new Error("API Capture Failed");
                 }
@@ -612,15 +760,15 @@
                 console.warn('Capture API failed, using mock pass');
                 setTimeout(() => {
                     closeCaptureModal();
-                    const mockPassData = window.lastSelectedVisitor || {
+                    window.pendingPassData = window.lastSelectedVisitor || {
                         fullName: "DEMO VISITOR",
                         companyName: "Demo Corp",
                         hostName: "OFFICER NAME",
                         requestedBy: "ADMIN",
                         purpose: "Official Visit"
                     };
-
-                    showPass(mockPassData, dataUrl);
+                    window.pendingPhotoUrl = dataUrl;
+                    openIDCaptureModal();
                 }, 800);
             } finally {
                 btn.innerHTML = "Take Photo & Print Pass";
@@ -650,12 +798,194 @@
             document.getElementById('gtrePassOrg').innerText = (passData.companyName || passData.organisation || 'N/A').toUpperCase();
             document.getElementById('gtrePassPhoto').src = photoUrl;
             document.getElementById('gtrePrintTime').innerText = now;
+            
+            // Populate Page 2 Dates
+            const dateHeaders = [
+                document.getElementById('gtrePassDate1'),
+                document.getElementById('gtrePassDate2'),
+                document.getElementById('gtrePassDate3'),
+                document.getElementById('gtrePassDate4'),
+                document.getElementById('gtrePassDate5')
+            ];
+            
+            // Reset old headers completely before appending
+            dateHeaders.forEach(el => { if(el) el.innerText = ''; });
+
+            // Calculate start and end bounds
+            let startDateStr = passData.validFromDate || passData.validFrom || new Date().toISOString().split('T')[0];
+            let endDateStr = passData.validUntilDate || passData.validUntil || passData.validUpto || startDateStr;
+            
+            let current = new Date(startDateStr);
+            let end = new Date(endDateStr);
+            
+            if (!isNaN(current.getTime()) && !isNaN(end.getTime())) {
+                const diffTime = end.getTime() - current.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const totalDays = Math.max(1, Math.min(diffDays + 1, 5)); // min 1 day, max 5 days
+                
+                for (let i = 0; i < totalDays; i++) {
+                    const dateStr = current.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).replace(/ /g, '-');
+                    if (dateHeaders[i]) {
+                        dateHeaders[i].innerText = dateStr;
+                    }
+                    current.setDate(current.getDate() + 1);
+                }
+            } else {
+                // Formatting fallback if passing strings fails
+                const issueDateRaw = new Date();
+                const fallbackDateStr = issueDateRaw.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).replace(/ /g, '-');
+                if (dateHeaders[0]) dateHeaders[0].innerText = fallbackDateStr;
+            }
 
             document.getElementById('passModal').classList.add('active');
         }
 
         function closePassModal() {
             document.getElementById('passModal').classList.remove('active');
+        }
+
+        let idStream = null;
+
+        async function openIDCaptureModal() {
+            document.getElementById('idCaptureModal').classList.add('active');
+            document.getElementById('idScannerView').style.display = 'block';
+            document.getElementById('idVerificationView').style.display = 'none';
+
+            try {
+                // Try to get back camera (environment) first for ID scanning, fallback to default
+                idStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                });
+                document.getElementById('idWebcamPreview').srcObject = idStream;
+            } catch (err) {
+                console.error("ID Webcam environment fallback:", err);
+                try {
+                    idStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                    });
+                    document.getElementById('idWebcamPreview').srcObject = idStream;
+                } catch(e) {
+                    alert("Cannot access webcam to scan ID.");
+                }
+            }
+        }
+
+        function closeIDCaptureModal() {
+            document.getElementById('idCaptureModal').classList.remove('active');
+            if (idStream) {
+                idStream.getTracks().forEach(t => t.stop());
+                idStream = null;
+            }
+        }
+
+        async function captureIDAndVerify() {
+            const video = document.getElementById('idWebcamPreview');
+            const canvas = document.getElementById('idPhotoCanvas');
+            let dataUrl = "https://via.placeholder.com/300x300.png?text=ID+Document";
+
+            if (idStream && video.videoWidth > 0) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            }
+
+            const btn = document.getElementById('captureIDBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Initializing OCR...';
+            btn.disabled = true;
+
+            try {
+                // Initialize Offline Tesseract.js Engine
+                btn.innerHTML = '<i class="fa-solid fa-cog fa-spin"></i> Scanning Document...';
+                const worker = await Tesseract.createWorker('eng', 1, {
+                    workerPath: '/js/tesseract/worker.min.js',
+                    corePath: '/js/tesseract/tesseract-core-simd.wasm.js',
+                    langPath: '/js/tesseract',
+                    gzip: true
+                });
+                
+                const ret = await worker.recognize(dataUrl);
+                const rawText = ret.data.text;
+                await worker.terminate();
+
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsing Extracted Data...';
+                
+                const token = sessionStorage.getItem('systemToken');
+                const data = await fetchAPI(`/api/visitors/${currentVisitorId}/capture_id?token=${token}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ idBase64: dataUrl, rawText: rawText })
+                });
+
+                if (data.status === 'success' && data.data) {
+                    document.getElementById('idScannerView').style.display = 'none';
+                    document.getElementById('idVerificationView').style.display = 'block';
+                    
+                    document.getElementById('verifyIdType').value = data.data.id_type || 'Unknown';
+                    document.getElementById('verifyName').value = data.data.name || '';
+                    document.getElementById('verifyIdNumber').value = data.data.id_number || '';
+                    document.getElementById('verifyDob').value = data.data.dob || '';
+                    document.getElementById('verifyPhotoPath').value = data.data.idPhotoPath || '';
+                } else {
+                    throw new Error("Invalid format from OCR");
+                }
+            } catch(e) {
+                console.error("OCR Extraction Error:", e);
+                // Fallback to manual entry view if OCR fails or backend is unreachable
+                document.getElementById('idScannerView').style.display = 'none';
+                document.getElementById('idVerificationView').style.display = 'block';
+                document.getElementById('verifyIdType').value = 'Manual/Error';
+                document.getElementById('verifyPhotoPath').value = 'fallback.jpg';
+                alert("OCR Extraction failed or incomplete. Please manually verify the ID details from the document.");
+            } finally {
+                btn.innerHTML = "Capture & Verify ID";
+                btn.disabled = false;
+            }
+        }
+
+        function retryIDCapture() {
+             document.getElementById('idScannerView').style.display = 'block';
+             document.getElementById('idVerificationView').style.display = 'none';
+        }
+
+        async function confirmIDAccess() {
+            const btn = document.getElementById('confirmIDBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authorizing...';
+            btn.disabled = true;
+
+            try {
+                const token = sessionStorage.getItem('systemToken');
+                const reqBody = {
+                    name: document.getElementById('verifyName').value,
+                    id_type: document.getElementById('verifyIdType').value,
+                    id_number: document.getElementById('verifyIdNumber').value,
+                    dob: document.getElementById('verifyDob').value,
+                    address: '',
+                    idPhotoPath: document.getElementById('verifyPhotoPath').value
+                };
+
+                const data = await fetchAPI(`/api/visitors/${currentVisitorId}/confirm_id?token=${token}`, {
+                    method: 'POST',
+                    body: JSON.stringify(reqBody)
+                });
+
+                if (data.status === 'success') {
+                    // ID confirmed successfully! Now close scanner and generate the pass!
+                    closeIDCaptureModal();
+                    
+                    if (window.pendingPassData && window.pendingPhotoUrl) {
+                        showPass(window.pendingPassData, window.pendingPhotoUrl);
+                    }
+                    searchVisitors(); 
+                } else {
+                    throw new Error("Confirmation API failed");
+                }
+            } catch(e) {
+                console.error("Confirmation Error:", e);
+                alert("Could not confirm ID. Please try saving it again.");
+            } finally {
+                btn.innerHTML = "Match & Grant Access";
+                btn.disabled = false; 
+            }
         }
 
         // Initial state: empty grid with instruction

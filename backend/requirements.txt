@@ -5,3 +5,5 @@ pydantic
 python-multipart
 oracledb
 opencv-contrib-python-headless
+pyjwt
+passlib[bcrypt]

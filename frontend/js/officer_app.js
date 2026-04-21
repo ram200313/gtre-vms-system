@@ -98,10 +98,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await fetchAPI('/api/visitors/officer_register', {
                 method: 'POST',
                 body: formData,
-                headers: {}
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('systemToken')}`
+                }
             });
 
-            if (result.status === 'success' || result.status === 'warning') {
+            // Fallback for form-data token if needed (Backend expects 'token' in Form)
+            formData.append('token', sessionStorage.getItem('systemToken'));
+
+            // Re-sending with token in form data for Form(...) compatibility in FastAPI
+            const resultWithToken = await fetchAPI('/api/visitors/officer_register', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (resultWithToken.status === 'success' || resultWithToken.status === 'warning') {
                 submitStatus.className = 'submit-status success';
                 submitStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${result.message}`;
                 e.target.reset();

@@ -146,7 +146,7 @@
             text-align: right;
         }
     </style>
-    <script src="js/auth.js?v=7"></script>
+    <script src="js/auth.js?v=11"></script>
 </head>
 
 <body>
@@ -159,31 +159,33 @@
                 <span class="badge offline">OFFLINE MODE</span>
             </div>
             <nav class="sidebar-nav">
-                <a href="dashboard.html" class="nav-item">
+                <a href="dashboard.html" id="nav-dashboard" class="nav-item">
                     <i class="fa-solid fa-gauge"></i> Dashboard
                 </a>
-                <div class="nav-label"
-                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Officer Portal</div>
-                <a href="visitor_request.html" class="nav-item">
+                
+                <a href="admin_dashboard.html" id="nav-admin" class="nav-item">
+                    <i class="fa-solid fa-users-cog"></i> User Management
+                </a>
+
+                <div id="label-officer" class="nav-label" style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Officer Portal</div>
+                <a href="visitor_request.html" id="nav-pre-reg" class="nav-item">
                     <i class="fa-solid fa-user-plus"></i> Pre-Registration
                 </a>
-                <a href="officer_visitors.html" class="nav-item">
+                <a href="officer_visitors.html" id="nav-my-visitors" class="nav-item">
                     <i class="fa-solid fa-list-check"></i> My Visitors
                 </a>
-                <div class="nav-label"
-                    style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Reception & Security</div>
-                <a href="reception_dashboard.html" class="nav-item">
+
+                <div id="label-reception" class="nav-label" style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Reception & Security</div>
+                <a href="reception_dashboard.html" id="nav-reception-dash" class="nav-item">
                     <i class="fa-solid fa-camera"></i> Reception Dashboard
                 </a>
-                <a href="todays_visitors.html" class="nav-item">
+                <a href="todays_visitors.html" id="nav-todays-visitors" class="nav-item">
                     <i class="fa-solid fa-users"></i> Today's Visitors
                 </a>
-                <a href="attendance.html" class="nav-item active">
+                <a href="attendance.html" id="nav-attendance" class="nav-item active">
                     <i class="fa-solid fa-user-check"></i> Regular Attendance
                 </a>
-                <a href="gate_scanners.html" class="nav-item">
+                <a href="gate_scanners.html" id="nav-gate-scanners" class="nav-item">
                     <i class="fa-solid fa-door-open"></i> Gate Scanners
                 </a>
             </nav>

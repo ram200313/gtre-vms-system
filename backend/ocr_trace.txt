@@ -1,0 +1,357 @@
+
+
+====== RAW TESSERACT TEXT START ======
+FF asd
+f y - _—
+
+====== RAW TESSERACT TEXT END ======
+
+Candidate names found: ['FF asd']
+Final Extracted Name: Ff Asd
+
+
+====== RAW TESSERACT TEXT START ======
+E— a
+- > i LE |
+N —— farstral -
+a adE TAX 760 RTMENT
+[ 2) i BI ESISE
+* CIEPJBTAZC ek Ts 5
+aro he EEE iE EY
+| vrs AND YADAV jee fase 5
+| =a Lg © de
+of T.-C Coy
+|
+
+====== RAW TESSERACT TEXT END ======
+
+Candidate names found: ['N  farstral', 'aro he EEE iE EY', 'a Lg  de']
+Final Extracted Name: N  Farstral
+
+
+====== EASYOCR RAW START ======
+XTn
+Art
+fu
+sirrr
+GOVT OFENDLA
+'4Oul: IAX DIPARTRDUZ
+uutuItt
+Penoanso[ Acooune nunet67
+CIEPJ974RG
+Japay
+Dl
+Wiqya NanD VADAV
+'3e8-90a
+====== EASYOCR RAW END ======
+
+Candidate names found: ['sirrr', 'CIEPJRG', 'Wiqya NanD VADAV']
+Final Extracted Name: Sirrr
+
+
+====== EASYOCR RAW START ======
+75
+71T
+NAT
+ar0
+(~TOFNDI
+nat#EBI
+Td dd
+Era
+cipawg
+Mai
+====== EASYOCR RAW END ======
+
+Candidate names found: ['cipawg']
+Final Extracted Name: Cipawg
+
+
+====== EASYOCR RAW START ======
+Ealafe
+JaanV
+po8
+364
+2320
+Nbzert
+Haa
+5086 9431 9186
+8Q0o , Zr7udz
+====== EASYOCR RAW END ======
+
+Candidate names found: ['JaanV']
+Final Extracted Name: Jaanv
+
+
+====== EASYOCR RAW START ======
+31of
+Jayarorn V
+Dra8 / DOB'{HT0}
+376
+13{ Male
+Jozz Nu Lieetian
+L1,
+Aede
+54
+Preead397
+Jy74
+mfuaku
+Eeel
+Redhab} Ia Eroal4_
+7id
+eiput
+Ga
+9186
+50869431
+33 8570 , 3Q Noi
+====== EASYOCR RAW END ======
+
+Candidate names found: ['Jayarorn V', 'Aede', 'eiput']
+Final Extracted Name: Jayarorn V
+
+
+====== EASYOCR RAW START ======
+ca9
+Jtav
+Wud}
+60/003
+0a
+60
+JereChm474
+22
+Jie
+Jun
+0d
+5086_9431 9186
+3376000 , 33 Tudv
+====== EASYOCR RAW END ======
+
+Candidate names found: ['Jtav']
+Final Extracted Name: Jtav
+
+
+====== EASYOCR RAW START ======
+0182
+JrroV
+Jr
+36,0 7os / Doa
+Nia
+87
+8714lt22n
+OeL
+E7"4
+abia
+14s
+5086 9431 9186
+0Q50' , 3RTdz
+====== EASYOCR RAW END ======
+
+Candidate names found: ['JrroV', 'abia']
+Final Extracted Name: Jrrov
+
+
+====== EASYOCR RAW START ======
+47d [
+Jayarenly
+47,8103| 003  "de0
+Ju
+Via
+084 cdoi4e
+Loiox ESE
+Ais
+Aidad
+Fena
+CFD
+#eleu
+Drnetit
+DRr UeR
+5086 94319186
+3 8Qjo' , RR Td3)
+====== EASYOCR RAW END ======
+
+Candidate names found: ['Jayarenly']
+Final Extracted Name: Jayarenly
+
+
+====== EASYOCR RAW START ======
+Tanrat
+Gnid
+FtA
+Tvt
+Dueitaiakthtv
+CuTorei
+707007anet
+Th
+Fr4nc
+CIEP4970zo
+tarln %
+#E
+5+76
+Ve Nad #aday
+47
+====== EASYOCR RAW END ======
+
+Candidate names found: ['Tanrat', 'tarln']
+
+
+====== EASYOCR RAW START ======
+Wtur
+67
+Taant
+3auy
+Git iplk
+NABBTA OMNZT
+{unt An *ea Bt
+"consaterd Aelalen Aten
+Ciep.97426
+846
+756z
+Wayarah #
+4n %7 #teftan
+0n €
+WOvA ManD YADAV
+====== EASYOCR RAW END ======
+
+Candidate names found: ['Taant', 'Wayarah']
+
+
+====== EASYOCR RAW START ======
+#ALE
+Jaee
+E4 62174
+005 4]
+ciute
+2
+Fir Rotds @OI
+1
+Eoa5
+3at/
+Aalkadl
+t DerZa
+5086 9431_9186
+33 Ndz
+====== EASYOCR RAW END ======
+
+
+
+====== EASYOCR RAW START ======
+Ouch
+~yoteen
+076/00a
+207h
+C04/Kan
+Ehe
+Ena
+4eian
+4leh
+5086 9431 9186
+337a3
+====== EASYOCR RAW END ======
+
+
+
+====== EASYOCR RAW START ======
+Jnut? V
+04 4766,0.a
+Val
+0205 Taet du
+6
+Rerhuey
+9186
+5086*9431
+3373z
+3z 8Q00
+====== EASYOCR RAW END ======
+
+
+
+====== EASYOCR RAW START ======
+EdX
+zjv
+4uos ! DOB ; {20400
+4
+670
+Sjr7 DraOted645ante
+AFiJe
+Pudfhn
+Ea
+Eala
+50
+50869431
+9186
+BQ0' , 3RNdz
+====== EASYOCR RAW END ======
+
+Candidate names found: ['BQ  RNdz']
+
+
+====== EASYOCR RAW START ======
+5086 _9431 9186
+337eqvo , 33rdzi
+4
+====== EASYOCR RAW END ======
+
+
+
+====== EASYOCR RAW START ======
+47 a
+Tn
+Taxt
+3047
+GTORNDL
+BnTTrA
+TNAete 5
+K
+Mskin
+CIEPH9TiZ5
+Pada0
+67
+Rex
+0
+VILYA RarD YADAK
+ATOMd:
+====== EASYOCR RAW END ======
+
+Y-Bounds Header: 130.0 DOB: 9999.0
+Candidate names found: ['Taxt', 'CIEPHTiZ']
+
+
+====== EASYOCR RAW START ======
+Rt
+HC
+Ta4N
+antr
+6ONT OPINDLA
+NCONE ZA{ DEFAreniet7
+4457
+Ta
+Aarnet77
+Ciep48742G
+#nmn
+2"
+8ai
+#DYa Haad VaDaV
+1an2e03
+====== EASYOCR RAW END ======
+
+Y-Bounds Header: 0.0 DOB: 9999.0
+Candidate names found: ['antr', 'ONT OPINDLA']
+
+
+====== EASYOCR RAW START ======
+M0a
+fa
+0natr
+SMV! OFINDL
+LAcOME KAX DEPASINENT
+Naecnrieh
+Porrcnen arri *
+Ciep497470
+Javarn
+60 %1 a #arer & Nuce
+Victa #ard Yadar
+44
+13,55603
+====== EASYOCR RAW END ======
+
+Y-Bounds Header: 0.0 DOB: 9999.0
+Candidate names found: ['natr', 'Javarn']

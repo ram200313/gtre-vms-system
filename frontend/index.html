@@ -155,7 +155,7 @@
         </div>
     </div>
 
-    <script src="js/auth.js?v=7"></script>
+    <script src="js/auth.js?v=11"></script>
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -181,29 +181,24 @@
                 if (data.status === 'success') {
                     sessionStorage.setItem('systemToken', data.token);
                     sessionStorage.setItem('systemRole', data.role);
+                    sessionStorage.setItem('fullName', data.fullName);
+                    sessionStorage.setItem('empid', data.empid);
+                    sessionStorage.setItem('allowedScreens', JSON.stringify(data.screens || []));
                     window.location.href = 'dashboard.html';
                     return;
+                } else {
+                    throw new Error(data.detail || "Authentication Failed.");
                 }
-
-                // If success not returned, try fallback
-                handleMockLogin(payload, errorMsg);
 
             } catch (err) {
                 console.error(err);
-                handleMockLogin(payload, errorMsg);
+                errorMsg.textContent = err.message || "Failed to connect to the authentication server.";
+                errorMsg.classList.add('active');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-sign-in-alt"></i> Login to System`;
             }
         });
-
-        function handleMockLogin(payload, errorMsg) {
-            // Ultimate Demo Fallback: Always allow login during preview
-            console.log("Using demo login bypass");
-            sessionStorage.setItem('systemToken', "mock-offline-token");
-            sessionStorage.setItem('systemRole', "System Administrator");
-            window.location.href = 'dashboard.html';
-        }
 
         window.addEventListener('DOMContentLoaded', () => {
             if (sessionStorage.getItem('systemToken')) {

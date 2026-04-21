@@ -242,6 +242,7 @@ async function submitForm(actionStatus) {
     const formData = new FormData(form);
     formData.append('allowedBlocks', JSON.stringify(blocksArray));
     formData.append('actionStatus', actionStatus);
+    formData.append('token', sessionStorage.getItem('systemToken')); // Role-based enforcement
 
     // Disable buttons
     const buttons = document.querySelectorAll('.action-buttons button');
@@ -255,8 +256,8 @@ async function submitForm(actionStatus) {
         // Send to FastAPI Backend
         const result = await fetchAPI('/api/visitors/register', {
             method: 'POST',
-            body: formData,
-            headers: {} // No Content-Type for FormData, browser will set it
+            body: formData
+            // No Content-Type for FormData, browser will set it with boundary
         });
 
         if (result.status === 'success' || result.status === 'warning') {

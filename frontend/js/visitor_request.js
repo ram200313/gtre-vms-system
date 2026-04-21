@@ -12,19 +12,21 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initPage() {
         try {
             // Retrieve session authentication info specifically for Officer Portal
-            const username = sessionStorage.getItem('officerAuth_name');
+            const username = sessionStorage.getItem('fullName');
+            const empid = sessionStorage.getItem('empid');
 
             if (!username) return; // Wait for auth if not present
 
             // 1. Immediately populate name (don't wait for API)
-            const authUser = username.toUpperCase();
+            const authUser = `${username.toUpperCase()} (${empid})`;
             document.getElementById('requestedBy').value = authUser;
             document.getElementById('currentUserDisplay').textContent = username;
 
             initStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Initializing...';
 
             try {
-                const result = await fetchAPI('/api/visitor-request/init');
+                const token = sessionStorage.getItem('systemToken');
+                const result = await fetchAPI(`/api/visitor-request/init?token=${token}`);
 
                 if (result.status === 'success') {
                     document.getElementById('requisitionNumber').value = result.data.requisitionNumber;
@@ -56,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Fetch officers list
     async function fetchOfficers() {
         try {
-            const result = await fetchAPI('/api/officers');
+            const token = sessionStorage.getItem('systemToken');
+            const result = await fetchAPI(`/api/officers?token=${token}`);
 
             if (result.status === 'success') {
                 renderOfficers(result.data);
@@ -143,9 +146,11 @@ document.addEventListener('DOMContentLoaded', () => {
         submitStatus.innerHTML = '<span style="color: #2563eb;"><i class="fa-solid fa-cloud-arrow-up"></i> Processing request...</span>';
 
         try {
+            const token = sessionStorage.getItem('systemToken');
+            const empid = sessionStorage.getItem('empid');
             const result = await fetchAPI('/api/visitor-request/submit', {
                 method: 'POST',
-                body: JSON.stringify(data)
+                body: JSON.stringify({ ...data, token, empid }) // Pass token and empid in JSON
             });
 
             if (result.status === 'success') {
@@ -197,14 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Run initialization if already authenticated, otherwise wait for event
-    if (sessionStorage.getItem('officerAuth') === 'true') {
+    if (sessionStorage.getItem('systemToken')) {
         initPage();
     }
 
     window.addEventListener('secondaryAuthSuccess', (e) => {
-        if (e.detail.authKey === 'officerAuth') {
-            initPage();
-        }
+        initPage();
     });
 
     fetchOfficers();

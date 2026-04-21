@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTRE VMS SYSTEM - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="layout-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h2>VMS SYSTEM</h2>
+                <span class="badge offline">OFFLINE MODE</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" id="nav-dashboard" class="nav-item">
+                    <i class="fa-solid fa-gauge"></i> Dashboard
+                </a>
+                <a href="admin_dashboard.html" id="nav-admin" class="nav-item active">
+                    <i class="fa-solid fa-users-cog"></i> User Management
+                </a>
+                <div id="label-officer" class="nav-label" style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Officer Portal</div>
+                <a href="visitor_request.html" id="nav-pre-reg" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i> Pre-Registration
+                </a>
+                <a href="officer_visitors.html" id="nav-my-visitors" class="nav-item">
+                    <i class="fa-solid fa-list-check"></i> My Visitors
+                </a>
+                <div id="label-reception" class="nav-label" style="padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Reception & Security</div>
+                <a href="reception_dashboard.html" id="nav-reception-dash" class="nav-item">
+                    <i class="fa-solid fa-camera"></i> Reception Dashboard
+                </a>
+                <a href="todays_visitors.html" id="nav-todays-visitors" class="nav-item">
+                    <i class="fa-solid fa-users"></i> Today's Visitors
+                </a>
+                <a href="attendance.html" id="nav-attendance" class="nav-item">
+                    <i class="fa-solid fa-user-check"></i> Regular Attendance
+                </a>
+                <a href="gate_scanners.html" id="nav-gate-scanners" class="nav-item">
+                    <i class="fa-solid fa-door-open"></i> Gate Scanners
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Administrator Control Panel</h1>
+                </div>
+                <div class="header-user">
+                    <div class="user-info">
+                        <span class="user-role">System Administrator</span>
+                        <span class="user-name" id="currentUserDisplay">Admin</span>
+                    </div>
+                    <div class="avatar" style="background-color: var(--primary-blue);">AD</div>
+
+                    <button onclick="systemLogout()" class="btn btn-secondary"
+                        style="margin-left: 15px; padding: 8px 12px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                        <i class="fa-solid fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <div class="card-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                        <h3 class="section-title" style="margin-bottom: 0;"><i class="fa-solid fa-users-cog"></i> System User Registration</h3>
+                        <button class="btn btn-primary" onclick="document.getElementById('userModal').style.display='flex'">
+                            <i class="fa-solid fa-user-plus"></i> Add New User
+                        </button>
+                    </div>
+
+                    <div style="background: white; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); overflow: hidden;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="background: #F9FAFB; border-bottom: 1px solid var(--border-color);">
+                                <tr>
+                                    <th style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">Emp ID</th>
+                                    <th style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">Full Name</th>
+                                    <th style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">Role</th>
+                                    <th style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">Department</th>
+                                    <th style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">Status</th>
+                                    <th style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase;">Last Login</th>
+                                    <th style="padding: 12px 16px; color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody">
+                                <tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading users...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="userModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index: 1000; align-items:center; justify-content:center;">
+        <div class="result-panel" style="width: 450px; background: white; border-radius: var(--border-radius); padding: 25px; border-top: 4px solid var(--primary-blue); box-shadow: var(--shadow-md);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom:10px;">
+                <h3 style="margin:0; font-size:18px; color:var(--primary-blue);"><i class="fa-solid fa-user-plus"></i> Register New User</h3>
+                <button onclick="document.getElementById('userModal').style.display='none'" style="background:none; border:none; cursor:pointer; font-size:16px; color:var(--text-muted);"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div id="formError" style="color:red; margin-bottom:15px; display:none;"></div>
+            
+            <form id="addUserForm">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Employee ID</label>
+                    <input type="text" id="emp_id" required style="width:100%; padding:8px; margin-top:5px; border-radius:4px; border:1px solid #ccc;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Full Name</label>
+                    <input type="text" id="full_name" required style="width:100%; padding:8px; margin-top:5px; border-radius:4px; border:1px solid #ccc;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>System Role</label>
+                    <select id="role" required style="width:100%; padding:8px; margin-top:5px; border-radius:4px; border:1px solid #ccc;">
+                        <option value="admin">Administrator</option>
+                        <option value="officer">Security Officer</option>
+                        <option value="reception">Receptionist</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Department</label>
+                    <input type="text" id="department" required style="width:100%; padding:8px; margin-top:5px; border-radius:4px; border:1px solid #ccc;">
+                </div>
+                <div class="form-group" style="margin-bottom: 25px;">
+                    <label>Password</label>
+                    <input type="password" id="password" required style="width:100%; padding:8px; margin-top:5px; border-radius:4px; border:1px solid #ccc;">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Create User</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/auth.js?v=11"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+        });
+
+        async function loadUsers() {
+            try {
+                const token = sessionStorage.getItem('systemToken');
+                const data = await fetchAPI(`/api/admin/users?token=${token}`, { method: 'GET' });
+                const tbody = document.getElementById('userTableBody');
+                
+                if (data.status === 'success') {
+                    tbody.innerHTML = '';
+                    data.data.forEach(user => {
+                        const statusBadge = user.is_active ? `<span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.1); color: var(--success);">Active</span>` : `<span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: rgba(239, 68, 68, 0.1); color: var(--danger);">Inactive</span>`;
+                        
+                        // Parse date nicely
+                        let loginDisplayStr = 'Never';
+                        if (user.last_login) {
+                            try {
+                                const d = new Date(user.last_login);
+                                loginDisplayStr = isNaN(d.getTime()) ? user.last_login : d.toLocaleString();
+                            } catch(e) { loginDisplayStr = user.last_login; }
+                        }
+                        
+                        let deleteBtn = `<button onclick="deleteUser('${user.emp_id}')" class="btn-icon" style="color: var(--danger); border: none; background: transparent; cursor: pointer; padding: 4px 8px;" title="Delete User">
+                                            <i class="fa-solid fa-trash"></i>
+                                         </button>`;
+                        
+                        // Prevent deleting the currently logged in admin or root admin
+                        if (user.emp_id.toUpperCase() === 'EMP01' || user.emp_id === sessionStorage.getItem('empid')) {
+                            deleteBtn = `<span style="color: var(--text-muted); font-size: 12px;">Protected</span>`;
+                        }
+
+                        tbody.innerHTML += `
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 12px 16px; font-weight: 600; color:var(--primary-blue);"><b>${user.emp_id}</b></td>
+                                <td style="padding: 12px 16px;">${user.full_name}</td>
+                                <td style="padding: 12px 16px;"><span style="text-transform:uppercase; font-size:12px; font-weight:bold; color:var(--text-muted);">${user.role}</span></td>
+                                <td style="padding: 12px 16px; color:var(--text-muted);">${user.department}</td>
+                                <td style="padding: 12px 16px;">${statusBadge}</td>
+                                <td style="padding: 12px 16px; color:var(--text-muted); font-size:13px;">${loginDisplayStr}</td>
+                                <td style="padding: 12px 16px; text-align: right;">${deleteBtn}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch(e) {
+                console.error("Error loading users:", e);
+                document.getElementById('userTableBody').innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Failed to load users. ${e.message}</td></tr>`;
+            }
+        }
+
+        async function deleteUser(empId) {
+            if (!confirm(`Are you sure you want to permanently delete user ${empId}?`)) {
+                return;
+            }
+            try {
+                const token = sessionStorage.getItem('systemToken');
+                const data = await fetchAPI(`/api/admin/users/${empId}?token=${token}`, {
+                    method: 'DELETE'
+                });
+                
+                if (data.status === 'success') {
+                    loadUsers(); // Refresh the table
+                } else {
+                    alert("Error deleting user: " + data.detail);
+                }
+            } catch(e) {
+                alert("Network error deleting user: " + e.message);
+            }
+        }
+
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = "Creating...";
+            
+            const payload = {
+                emp_id: document.getElementById('emp_id').value.trim(),
+                full_name: document.getElementById('full_name').value.trim(),
+                role: document.getElementById('role').value,
+                department: document.getElementById('department').value.trim(),
+                password: document.getElementById('password').value
+            };
+            
+            try {
+                const token = sessionStorage.getItem('systemToken');
+                const data = await fetchAPI(`/api/admin/users?token=${token}`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                if (data.status === 'success') {
+                    loadUsers();
+                    document.getElementById('userModal').style.display = 'none';
+                    e.target.reset();
+                } else {
+                    throw new Error(data.detail || "Failed to create user");
+                }
+            } catch(err) {
+                document.getElementById('formError').textContent = err.message;
+                document.getElementById('formError').style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Create User";
+            }
+        });
+    </script>
+</body>
+</html>

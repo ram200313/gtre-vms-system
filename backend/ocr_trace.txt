@@ -355,3 +355,107 @@ Victa #ard Yadar
 
 Y-Bounds Header: 0.0 DOB: 9999.0
 Candidate names found: ['natr', 'Javarn']
+
+
+====== EASYOCR RAW START ======
+Is6e#
+MManatt
+Atn
+45044
+CICRJP
+eMk
+3a?
+44v
+====== EASYOCR RAW END ======
+
+
+
+====== EASYOCR RAW START ======
+3tu
+Krn
+onaly faapf
+GOVT OFIOA
+MALHEIARNT
+8
+7a8ete#
+'Ar"dunt Nntet
+Aut
+CiepJ9742G
+[4aeb
+704
+594
+77##Ad YRAY
+====== EASYOCR RAW END ======
+
+
+
+====== EASYOCR RAW START ======
+776
+Dahi
+01 [NDA
+Go
+D #Neahnt
+74 {20ul
+Mavi6
+4p4#
+Cire 07az0
+====== EASYOCR RAW END ======
+
+
+
+====== EASYOCR RAW START ======
+rr | 4 - Lois i IE ; ie ay
+| il ea Earerr Hi
+. Cees GEPARTEEN :
+= # Rear. Sol 5 5 : » 2 £ - ;
+: li ; 4 4 ; | 47 #
+i 7 & | Boia Bh hS- 1
+| % il Bian ms HOB Tg a Ries - -
+| RE vii ps uAnD YRUAY Ce
+i EC is ey \
+» E EE al Ts ul
+! i Ea a
+Ir Sele fC Sl i : :
+j # twas ET 0 ’ :
+ia vai BGR one
+fii) a L § :
+fe ee Sg : v NR
+====== EASYOCR RAW END ======
+
+Y-Bounds Header: 0.0 DOB: 9999.0
+Candidate names found: ['il ea Earerr Hi', 'Cees GEPARTEEN', 'i    Boia Bh hS', 'i EC is ey', 'i Ea a', 'j  twas ET', 'ia vai BGR one', 'fii a L']
+
+
+====== EASYOCR RAW START ======
+E a ji il Riise
+4 | aa — ape
+E ann SrrTS] :
+; 2 an Chew TREE TE : = S55
+a IEPA BR - Tes.
+3 of £ ree A ly |
+el 3 y ong =
+EE a i J 0 ES SE
+gp 2 Zul a Te a SENT SER
+ARTRRASE YY » Sa $l ariel
+g Bs WORD Roan,
+om wt A Bee + Home —
+et ALAR] Co po COREE J
+g Sails | | I E. RT— 1 4 _
+BE A }
+====== EASYOCR RAW END ======
+
+Y-Bounds Header: 0.0 DOB: 9999.0
+Candidate names found: ['aa  ape', 'E ann SrrTS', 'a IEPA BR  Tes', 'el  y ong', 'g Bs WORD Roan']
+
+
+====== EASYOCR RAW START ======
++ & ae, pi i =X .
+S CIEP J9T42G Ff . [| &
+| vey BER LSVRNS
+| TITRA REND RTM k
+; 9 % wil deg :
+1 lots HN oe -
+====== EASYOCR RAW END ======
+
+Y-Bounds Header: 0.0 DOB: 9999.0
+Candidate names found: ['ae pi i X', 'S CIEP JTG Ff', 'vey BER LSVRNS', 'TITRA REND RTM k', 'wil deg', 'lots HN oe']

@@ -411,7 +411,16 @@
             } catch (err) {
                 console.error("Network error during recognition:", err);
                 await new Promise(r => setTimeout(r, 1500));
-                document.getElementById('errorMsg').textContent = "Connection to Verification Server lost. Cannot recognize face offline.";
+                
+                // If it is a string error containing details from the Python API backend, display it directly!
+                const errorStr = (err || "").toString();
+                let displayMsg = "Connection to Verification Server lost. Cannot recognize face offline.";
+                
+                if (errorStr.includes("No approved visitors") || errorStr.includes("Face not recognized") || err.message) {
+                    displayMsg = err.message || errorStr;
+                }
+                
+                document.getElementById('errorMsg').textContent = displayMsg;
                 showState(errorState);
                 resultPanel.classList.add('error');
             } finally {
@@ -429,7 +438,8 @@
 
         async function fetchAttendanceLogs() {
             try {
-                const data = await fetchAPI('/api/attendance');
+                const token = sessionStorage.getItem('systemToken');
+                const data = await fetchAPI(`/api/attendance?token=${token}`);
                 if (data.status === 'success') {
                     logsCache = data.data;
                     renderLogsTable(data.data);

@@ -8,3 +8,8 @@ opencv-contrib-python-headless
 pyjwt
 passlib
 bcrypt==3.2.2
+easyocr
+paddlepaddle
+paddleocr
+pytesseract
+pillow

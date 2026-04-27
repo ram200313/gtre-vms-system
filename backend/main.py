@@ -31,8 +31,23 @@ ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 try:
     import openbharatocr
-except ImportError:
+    from openbharatocr.ocr.pan import PANCardExtractor
+    from openbharatocr.ocr.aadhaar import AadhaarOCR
+    from openbharatocr.ocr.driving_licence import driving_licence
+    from openbharatocr.ocr.passport import passport
+    from openbharatocr.ocr.voter_id import voter_id_front
+    print("Loading global OCR models to avoid lag...")
+    GLOBAL_PAN_EXTRACTOR = PANCardExtractor()
+    GLOBAL_AADHAAR_EXTRACTOR = AadhaarOCR()
+    import easyocr
+    GLOBAL_EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
+    print("Global OCR models loaded successfully.")
+except Exception as e:
     openbharatocr = None
+    GLOBAL_PAN_EXTRACTOR = None
+    GLOBAL_AADHAAR_EXTRACTOR = None
+    GLOBAL_EASYOCR_READER = None
+    print(f"Warning: OCR dependencies failed to load completely: {e}")
 
 app = FastAPI(title="Offline VMS API")
 
@@ -600,20 +615,19 @@ async def capture_id(visitor_id: str, req: CaptureIDRequest, token: str):
     extracted_data["name"] = true_name # Set unconditionally
 
     try:
-        # We must use EasyOCR to get true physical bounding boxes since frontend Tesseract destroys coordinates and makes it a pure garbage string
+        # Use globally instantiated EasyOCR for instantaneous text extraction
+        raw_text_list = []
         raw_results = []
-        try:
-            import easyocr
-            reader = easyocr.Reader(['en'], gpu=False, verbose=False)
-            raw_results = reader.readtext(filepath, detail=1)
-        except Exception as e:
+        if GLOBAL_EASYOCR_READER:
+            raw_results = GLOBAL_EASYOCR_READER.readtext(filepath, detail=1)
+            raw_text_list = [r[1] for r in raw_results]
+        else:
             if req.rawText:
-                lines = [line.strip() for line in req.rawText.split('\n') if line.strip()]
-                raw_results = [([[0, i*20], [100, i*20], [100, i*20+20], [0, i*20+20]], txt, 0.9) for i, txt in enumerate(lines)]
-
-        import re
-        import numpy as np
-
+                raw_text_list = [line.strip() for line in req.rawText.split('\n') if line.strip()]
+                raw_results = [([[0, i*20], [100, i*20], [100, i*20+20], [0, i*20+20]], txt, 0.9) for i, txt in enumerate(raw_text_list)]
+        
+        upper_text = " \n ".join([txt.upper() for txt in raw_text_list])
+        
         def get_center_y(bbox):
             if not isinstance(bbox, list) or len(bbox) == 0: return 0.0
             try: return sum([pt[1] for pt in bbox]) / len(bbox)
@@ -627,14 +641,8 @@ async def capture_id(visitor_id: str, req: CaptureIDRequest, token: str):
         # Sort spatially top-to-bottom!
         raw_results.sort(key=lambda x: (get_center_y(x[0]), get_center_x(x[0])))
 
-        try:
-            with open("ocr_trace.txt", "a", encoding="utf-8") as f:
-                f.write("\n\n====== EASYOCR RAW START ======\n")
-                for r in raw_results: f.write(str(r[1]) + "\n")
-                f.write("====== EASYOCR RAW END ======\n\n")
-        except: pass
-
         clean_data = []
+        import re
         for bbox, text, prob in raw_results:
             cleaned = re.sub(r'[^a-zA-Z0-9\s/.,:-]', '', text).strip()
             if len(cleaned) >= 2 and prob > 0.05:
@@ -644,149 +652,138 @@ async def capture_id(visitor_id: str, req: CaptureIDRequest, token: str):
                     "y": get_center_y(bbox),
                     "bbox": bbox
                 })
-
-        upper_text = " \n ".join([d["upper"] for d in clean_data])
         
-        # Deep Regex for Document Classification explicitly designed for low-res offline optical artifacts
+        # Fast document classification
         is_aadhaar = bool(re.search(r'AADHA|UNIQUE|UVIIOUE|MERA\s*AAD|GOVERNMENT|GOVT\s*OF\s*INDIA|TOENDI|TOFNDI|NDLA', upper_text))
         is_pan = bool(re.search(r'INCOME|TAX|PERMANENT|ACCOUNT|INCOHE|JAX|DEPART|DIPART|4OuI', upper_text))
         is_passport = bool(re.search(r'PASSPORT|REPUBLIC', upper_text))
         is_dl = bool(re.search(r'DRIVING|LICENCE|LICENSE|AUTHORISATION|TRANSPORT', upper_text))
         is_voter = bool(re.search(r'ELECTION|COMMISSION|EPIC|ELECTOR|FACSIMILE|COMMI', upper_text))
         
-        # Tie-breaker if multiple match, use strict strings
         if is_pan and is_aadhaar:
             if "ACCOUNT" in upper_text or "INCOME" in upper_text or "TAX" in upper_text: is_aadhaar = False
             else: is_pan = False
-
+            
         doc_type = "Unknown"
-        id_number = ""
-
-        pan_regex = r'\b([A-Z]{5}[0-9]{4}[A-Z])\b'
-        aadhaar_regex = r'\b(\d{4}[\s-]?\d{4}[\s-]?\d{4})\b'
-        dl_regex = r'\b([A-Z]{2}[-\s]?[0-9]{2}[-\s]?[0-9]{4,11})\b'
-        passport_regex = r'\b([A-Z]{1}[0-9]{7})\b'
-        voter_regex = r'\b([A-Z]{2,4}[0-9]{6,10})\b'
-
-        if is_pan: doc_type = "PAN Card"; m = re.search(pan_regex, upper_text); id_number = m.group(1) if m else ""
-        elif is_aadhaar: doc_type = "Aadhaar"; m = re.search(aadhaar_regex, upper_text); id_number = m.group(1) if m else ""
-        elif is_voter: doc_type = "Voter ID"; m = re.search(voter_regex, upper_text); id_number = m.group(1) if m else ""
-        elif is_dl: doc_type = "Driving License"; m = re.search(dl_regex, upper_text); id_number = m.group(1) if m else ""
-        elif is_passport: doc_type = "Passport"; m = re.search(passport_regex, upper_text); id_number = m.group(1) if m else ""
+        if is_pan: doc_type = "PAN Card"
+        elif is_aadhaar: doc_type = "Aadhaar"
+        elif is_voter: doc_type = "Voter ID"
+        elif is_dl: doc_type = "Driving License"
+        elif is_passport: doc_type = "Passport"
         else:
-            if re.search(pan_regex, upper_text): doc_type = "PAN Card"; id_number = re.search(pan_regex, upper_text).group(1)
-            elif re.search(aadhaar_regex, upper_text): doc_type = "Aadhaar"; id_number = re.search(aadhaar_regex, upper_text).group(1)
-            elif re.search(dl_regex, upper_text): doc_type = "Driving License"; id_number = re.search(dl_regex, upper_text).group(1)
-            elif re.search(voter_regex, upper_text): doc_type = "Voter ID"; id_number = re.search(voter_regex, upper_text).group(1)
+            # Safe fallbacks if classification is ambiguous
+            if re.search(r'\b([A-Z]{5}[0-9]{4}[A-Z])\b', upper_text): doc_type = "PAN Card"
+            elif re.search(r'\b(\d{4}[\s-]?\d{4}[\s-]?\d{4})\b', upper_text): doc_type = "Aadhaar"
+            elif re.search(r'\b([A-Z]{2}[-\s]?[0-9]{2}[-\s]?[0-9]{4,11})\b', upper_text): doc_type = "Driving License"
 
         extracted_data["id_type"] = doc_type
-        extracted_data["id_number"] = id_number.replace(' ', '').replace('-', '') if id_number else "MANUAL_ENTRY_REQUIRED"
 
-        # Universal DOB Extraction
-        dob = ""
-        for item in clean_data:
-            txt = item["upper"]
-            dob_match = re.search(r'\b(\d{2}[/.-]\d{2}[/.-]\d{4})\b', txt)
-            if dob_match: dob = dob_match.group(1); break
+        # Dispatch exactly to openbharatocr modules
+        try:
+            if doc_type == "PAN Card" and GLOBAL_PAN_EXTRACTOR:
+                res = GLOBAL_PAN_EXTRACTOR.extract_pan_details(filepath)
+                extracted_data["name"] = res.get("name", "")
+                # Normalize names and remove extra spaces
+                if extracted_data["name"]: extracted_data["name"] = " ".join(extracted_data["name"].split())
+                extracted_data["id_number"] = res.get("pan_number", "")
+                extracted_data["dob"] = res.get("date_of_birth", "")
+            elif doc_type == "Aadhaar" and GLOBAL_AADHAAR_EXTRACTOR:
+                res = GLOBAL_AADHAAR_EXTRACTOR.extract_front_details(filepath)
+                extracted_data["name"] = res.get("Full Name", "")
+                if extracted_data["name"]: extracted_data["name"] = " ".join(extracted_data["name"].split())
+                extracted_data["id_number"] = res.get("Aadhaar Number", "")
+                extracted_data["dob"] = res.get("Date of Birth", "")
+            elif doc_type == "Driving License" and openbharatocr:
+                res = driving_licence(filepath)
+                extracted_data["name"] = res.get("name", "")
+                extracted_data["id_number"] = res.get("licence_number", "")
+                extracted_data["dob"] = res.get("dates", {}).get("dob", "")
+            elif doc_type == "Passport" and openbharatocr:
+                res = passport(filepath)
+                first_name = res.get("Given Name", res.get("Name", ""))
+                last_name = res.get("Surname", "")
+                extracted_data["name"] = f"{first_name} {last_name}".strip()
+                extracted_data["id_number"] = res.get("Passport Number", "")
+                extracted_data["dob"] = res.get("Date of Birth", "")
+            elif doc_type == "Voter ID" and openbharatocr:
+                res = voter_id_front(filepath)
+                extracted_data["name"] = res.get("Name", "")
+                extracted_data["id_number"] = res.get("Voter ID Number", "")
+                extracted_data["dob"] = res.get("Date of Birth", "")
+        except Exception as e:
+            print("OpenBharatOCR extractor failed:", e)
+
+        # Cleanup whitespace
+        extracted_data["name"] = extracted_data["name"].strip() if extracted_data["name"] else ""
+        extracted_data["id_number"] = extracted_data["id_number"].strip() if extracted_data["id_number"] else ""
+
+        # Re-apply fallbacks via Regex if OCR module returns empty (e.g., blurry image)
+        if not extracted_data["id_number"] or not extracted_data["id_number"].strip():
+            if doc_type == "PAN Card": m = re.search(r'\b([A-Z]{5}[0-9]{4}[A-Z])\b', upper_text); extracted_data["id_number"] = m.group(1) if m else ""
+            elif doc_type == "Aadhaar": m = re.search(r'\b(\d{4}[\s-]?\d{4}[\s-]?\d{4})\b', upper_text); extracted_data["id_number"] = m.group(1) if m else ""
+            elif doc_type == "Driving License": m = re.search(r'\b([A-Z]{2}[-\s]?[0-9]{2}[-\s]?[0-9]{4,11})\b', upper_text); extracted_data["id_number"] = m.group(1) if m else ""
             
-            yob_match = re.search(r'(?:YOB|YEAR\s*OF\s*BIRTH|DOB).*?([1-2][0-9]{3})', txt)
-            if yob_match: dob = yob_match.group(1); break
-            
-            # Catch standalone years next to DOB if space-separated
-            if "DOB" in txt:
-                year_match = re.search(r'\b(19[4-9]\d|20[0-2]\d)\b', txt)
-                if year_match: dob = year_match.group(1); break
-                
-        if not dob:
+        if not extracted_data["dob"]:
             dob_match = re.search(r'\b(\d{2}[/.-]\d{2}[/.-]\d{4})\b', upper_text)
-            if dob_match: dob = dob_match.group(1)
+            if dob_match: extracted_data["dob"] = dob_match.group(1)
 
-        extracted_data["dob"] = dob
-        
-        # Spatial-Aware Multi-Pass Name Extraction
-        extracted_name = ""
-        stop_words = [
-            'GOVT', 'GOVERNMENT', 'AUTHORITY', 'DEPARTMENT', 'INDIA', 'INCOME', 'TAX', 
-            'ELECTION', 'COMMISSION', 'FATHER', 'HUSBAND', 'DOB', 'DATE', 'CARD', 
-            'SIGNATURE', 'ACCOUNT', 'IDENTIFICATION', 'NAME', 'PERMANENT', 'DIRECTOR',
-            'REPUBLIC', 'UNIQUE', 'OF', 'TAX', 'MERA', 'AADHAAR', 'EPIC',
-            'GENDER', 'MALE', 'FEMALE', 'YEAR', 'BIRTH'
-        ]
-
-        # In Indian ID cards, the name is almost exclusively physically located below the Government headers and above the DOB!
-        header_y_limit = 0.0
-        dob_y_limit = 9999.0
-
-        for item in clean_data:
-            if any(h in item["upper"] for h in ['GOVERNMENT', 'TOFNDI', 'INCOME', 'DIPART', 'TAX']):
-                if item["y"] > header_y_limit: header_y_limit = item["y"]
-            if item["upper"] == dob or re.search(r'\d{2}/\d{2}', item["text"]):
-                if item["y"] < dob_y_limit: dob_y_limit = item["y"]
-
-        candidate_names = []
-        for item in clean_data:
-            ln = item["text"]
-            ln_up = item["upper"]
-            y_pos = item["y"]
-            
-            match = re.search(r'\bNAME\s*[:-]\s*([A-Za-z\s.]+)', ln_up)
-            if match:
-                possible = match.group(1).strip()
-                if len(possible) > 3 and possible not in stop_words:
-                    extracted_name = possible.title()
-                    break
-
-            if ln_up == doc_type.upper() or ln_up == dob or ln_up.replace(" ", "") == id_number:
-                continue
-                
-            word_list = ln_up.split()
-            if any(sw in word_list for sw in stop_words):
-                continue
-                
-            # Must be physically below header and above DOB if bounds were found
-            if header_y_limit > 0 and dob_y_limit < 9999.0:
-                if y_pos <= header_y_limit or y_pos >= dob_y_limit:
-                    continue
-            
-            alpha_chars = sum(c.isalpha() for c in ln)
-            if alpha_chars >= 4 and (alpha_chars / len(ln)) > 0.4:
-                cand_clean = re.sub(r'[^a-zA-Z\s]', '', ln).strip()
-                if len(cand_clean) >= 4:
-                    if len(cand_clean.split()) <= 4:
-                        candidate_names.append(cand_clean)
-                    
-        if not extracted_name and candidate_names:
-            try:
-                with open("ocr_trace.txt", "a", encoding="utf-8") as f:
-                    f.write("Y-Bounds Header: " + str(header_y_limit) + " DOB: " + str(dob_y_limit) + "\n")
-                    f.write("Candidate names found: " + str(candidate_names) + "\n")
-            except: pass
-            for cand in candidate_names:
-                if cand.lower() not in ["india", "govt of", "shri", "kumari", "smt", "smt.", "mr", "mrs"]:
-                    extracted_name = cand.title()
-                    break
-        
-        import difflib
-        
-        final_name = extracted_name
-        
-        # If the visitor is pre-registered, ALWAYS prioritize their beautifully typed true_name 
-        # instead of letting blurry OCR artifacts overwrite it on the dashboard.
+        # Enforce True Name fallback for pre-registered users so OCR doesn't ruin it
         if true_name:
-            if extracted_name:
-                # If they are totally different names, OCR might have extracted a weird line.
-                # If they share >= 30% similarity, the OCR successfully read the name but with typos (e.g. Jayaram V vs Jayarenly). 
-                # Either way, true_name is the DB truth.
-                final_name = true_name
-            else:
-                final_name = true_name
-        else:
-            final_name = extracted_name if extracted_name else "Name Extraction Failed"
+            extracted_data["name"] = true_name
+        elif not extracted_data["name"] or extracted_data["name"].strip() == "":
+            # Spatial-Aware Multi-Pass Name Extraction Fallback
+            extracted_name = ""
+            stop_words = [
+                'GOVT', 'GOVERNMENT', 'AUTHORITY', 'DEPARTMENT', 'INDIA', 'INCOME', 'TAX', 
+                'ELECTION', 'COMMISSION', 'FATHER', 'HUSBAND', 'DOB', 'DATE', 'CARD', 
+                'SIGNATURE', 'ACCOUNT', 'IDENTIFICATION', 'NAME', 'PERMANENT', 'DIRECTOR',
+                'REPUBLIC', 'UNIQUE', 'OF', 'TAX', 'MERA', 'AADHAAR', 'EPIC',
+                'GENDER', 'MALE', 'FEMALE', 'YEAR', 'BIRTH', 'VID'
+            ]
+            header_y_limit = 0.0
+            dob_y_limit = 9999.0
             
-        extracted_data["name"] = final_name
+            for item in clean_data:
+                if any(h in item["upper"] for h in ['GOVERNMENT', 'TOFNDI', 'INCOME', 'DIPART', 'TAX']):
+                    if item["y"] > header_y_limit: header_y_limit = item["y"]
+                if item["upper"] == extracted_data["dob"] or re.search(r'\d{2}/\d{2}', item["text"]):
+                    if item["y"] < dob_y_limit: dob_y_limit = item["y"]
+                    
+            candidate_names = []
+            for item in clean_data:
+                ln = item["text"]; ln_up = item["upper"]; y_pos = item["y"]
+                match = re.search(r'\bNAME\s*[:-]\s*([A-Za-z\s.]+)', ln_up)
+                if match:
+                    possible = match.group(1).strip()
+                    if len(possible) > 3 and possible not in stop_words:
+                        extracted_name = possible.title()
+                        break
+                if ln_up == doc_type.upper() or ln_up == extracted_data["dob"] or ln_up.replace(" ", "") == extracted_data["id_number"]: continue
+                if any(sw in ln_up.split() for sw in stop_words): continue
+                if header_y_limit > 0 and dob_y_limit < 9999.0:
+                    if y_pos <= header_y_limit or y_pos >= dob_y_limit: continue
+                alpha_chars = sum(c.isalpha() for c in ln)
+                if alpha_chars >= 4 and (alpha_chars / len(ln)) > 0.4:
+                    cand_clean = re.sub(r'[^a-zA-Z\s]', '', ln).strip()
+                    if len(cand_clean) >= 4 and len(cand_clean.split()) <= 4:
+                        candidate_names.append(cand_clean)
+                        
+            if not extracted_name and candidate_names:
+                for cand in candidate_names:
+                    if cand.lower() not in ["india", "govt of", "shri", "kumari", "smt", "smt.", "mr", "mrs"]:
+                        extracted_name = cand.title()
+                        break
 
+            extracted_data["name"] = extracted_name if extracted_name else "Name Extraction Failed"
+
+        if not extracted_data["id_number"]:
+             extracted_data["id_number"] = "MANUAL_ENTRY_REQUIRED"
+        else:
+             extracted_data["id_number"] = extracted_data["id_number"].replace("-", "").replace(" ", "")
+             
     except Exception as e:
         print(f"Error extracting OCR data: {e}")
+        import traceback
         traceback.print_exc()
         extracted_data["id_number"] = "OCR Parsing Failed"
 

@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gtre_vms_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    volumes:
+      # Mount the local databases to persist changes if sqlite is used
+      - ./backend/offline_auth.db:/app/offline_auth.db
+      - ./backend/offline_id_scans.db:/app/offline_id_scans.db
+      - ./backend/ocr_trace.txt:/app/ocr_trace.txt
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gtre_vms_frontend
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    depends_on:
+      - backend

@@ -29,31 +29,40 @@ from datetime import timedelta
 SECRET_KEY = "gtre_vms_super_secret_offline_key"
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-try:
-    import openbharatocr
-    from openbharatocr.ocr.pan import PANCardExtractor
-    from openbharatocr.ocr.aadhaar import AadhaarOCR
-    from openbharatocr.ocr.driving_licence import driving_licence
-    from openbharatocr.ocr.passport import passport
-    from openbharatocr.ocr.voter_id import voter_id_front
-    print("Loading OpenBharatOCR models...")
-    GLOBAL_PAN_EXTRACTOR = PANCardExtractor()
-    GLOBAL_AADHAAR_EXTRACTOR = AadhaarOCR()
-    print("OpenBharatOCR models loaded successfully.")
-except Exception as e:
+IS_CLOUD = os.environ.get("RENDER") == "true" or "PORT" in os.environ
+
+if not IS_CLOUD:
+    try:
+        import openbharatocr
+        from openbharatocr.ocr.pan import PANCardExtractor
+        from openbharatocr.ocr.aadhaar import AadhaarOCR
+        from openbharatocr.ocr.driving_licence import driving_licence
+        from openbharatocr.ocr.passport import passport
+        from openbharatocr.ocr.voter_id import voter_id_front
+        print("Loading OpenBharatOCR models...")
+        GLOBAL_PAN_EXTRACTOR = PANCardExtractor()
+        GLOBAL_AADHAAR_EXTRACTOR = AadhaarOCR()
+        print("OpenBharatOCR models loaded successfully.")
+    except Exception as e:
+        openbharatocr = None
+        GLOBAL_PAN_EXTRACTOR = None
+        GLOBAL_AADHAAR_EXTRACTOR = None
+        print(f"Warning: OpenBharatOCR failed to load: {e}")
+
+    try:
+        import easyocr
+        print("Loading EasyOCR models...")
+        GLOBAL_EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
+        print("EasyOCR loaded successfully.")
+    except Exception as e:
+        GLOBAL_EASYOCR_READER = None
+        print(f"Warning: EasyOCR failed to load: {e}")
+else:
+    print("Running in Cloud (Memory Constrained). Disabling heavy OCR models, will fallback to Tesseract.")
     openbharatocr = None
     GLOBAL_PAN_EXTRACTOR = None
     GLOBAL_AADHAAR_EXTRACTOR = None
-    print(f"Warning: OpenBharatOCR failed to load: {e}")
-
-try:
-    import easyocr
-    print("Loading EasyOCR models...")
-    GLOBAL_EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
-    print("EasyOCR loaded successfully.")
-except Exception as e:
     GLOBAL_EASYOCR_READER = None
-    print(f"Warning: EasyOCR failed to load: {e}")
 
 app = FastAPI(title="Offline VMS API")
 

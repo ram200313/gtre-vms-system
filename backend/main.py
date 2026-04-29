@@ -36,18 +36,24 @@ try:
     from openbharatocr.ocr.driving_licence import driving_licence
     from openbharatocr.ocr.passport import passport
     from openbharatocr.ocr.voter_id import voter_id_front
-    print("Loading global OCR models to avoid lag...")
+    print("Loading OpenBharatOCR models...")
     GLOBAL_PAN_EXTRACTOR = PANCardExtractor()
     GLOBAL_AADHAAR_EXTRACTOR = AadhaarOCR()
-    import easyocr
-    GLOBAL_EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
-    print("Global OCR models loaded successfully.")
+    print("OpenBharatOCR models loaded successfully.")
 except Exception as e:
     openbharatocr = None
     GLOBAL_PAN_EXTRACTOR = None
     GLOBAL_AADHAAR_EXTRACTOR = None
+    print(f"Warning: OpenBharatOCR failed to load: {e}")
+
+try:
+    import easyocr
+    print("Loading EasyOCR models...")
+    GLOBAL_EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
+    print("EasyOCR loaded successfully.")
+except Exception as e:
     GLOBAL_EASYOCR_READER = None
-    print(f"Warning: OCR dependencies failed to load completely: {e}")
+    print(f"Warning: EasyOCR failed to load: {e}")
 
 app = FastAPI(title="Offline VMS API")
 
@@ -115,7 +121,7 @@ def verify_role(token: str, required_roles: List[str]):
         role = payload.get("role")
         if role is None:
             raise HTTPException(status_code=401, detail="Invalid auth token payload")
-    except pyjwt.PyJWTError: # Re-evaluate later if strictly PyJWT vs python-jose
+    except jwt.PyJWTError:
         pass # Handle fallback for now or general jwt exceptions
     except jwt.PyJWTError:
         pass
@@ -278,13 +284,20 @@ async def get_dashboard_stats(token: str):
     return {"status": "success", "data": stats}
 
 @app.get("/api/visitors/todays")
-async def get_todays_visitors(token: str):
-    verify_role(token, ["reception"])
+async def get_todays_visitors(token: str, date: str = None):
+    verify_role(token, ["reception", "admin"])
+    
+    if date:
+        search_date = date + "%"
+        date_for_mock = date
+    else:
+        search_date = f"{datetime.datetime.now().strftime('%Y-%m-%d')}%"
+        date_for_mock = datetime.datetime.now().strftime('%Y-%m-%d')
+
     conn = get_db_connection()
     if conn:
         try:
             cursor = conn.cursor()
-            today_str = f"{datetime.datetime.now().strftime('%Y-%m-%d')}%"
             # Get visitors with passes ready, inside, or exited for today
             cursor.execute("""
                 SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, 
@@ -293,7 +306,7 @@ async def get_todays_visitors(token: str):
                 WHERE STATUS IN ('PASS_READY', 'VISITOR_INSIDE', 'VISITOR_EXITED') 
                 AND PASS_VALID_FROM LIKE :1
                 ORDER BY ID DESC
-            """, [today_str])
+            """, [search_date])
             rows = cursor.fetchall()
             visitors = [
                 {
@@ -317,8 +330,7 @@ async def get_todays_visitors(token: str):
             if conn: conn.close()
             
     # Fallback to mock DB
-    today_str2 = datetime.datetime.now().strftime("%Y-%m-%d")
-    todays = [v for v in MOCK_VISITORS_DB if v.get('status') in ['PASS_READY', 'VISITOR_INSIDE', 'VISITOR_EXITED'] and v.get('validFromDate', '').startswith(today_str2)]
+    todays = [v for v in MOCK_VISITORS_DB if v.get('status') in ['PASS_READY', 'VISITOR_INSIDE', 'VISITOR_EXITED'] and v.get('validFromDate', '').startswith(date_for_mock)]
     return {"status": "success", "data": todays, "source": "mock"}
 
 
@@ -339,8 +351,11 @@ async def officer_register_visitor(
     validUntilDate: str = Form(...),
     token: str = Form(...) # Strict role-based enforcement
 ):
-    verify_role(token, ["officer"])
+    verify_role(token, ["officer", "admin"])
     try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        req_by = payload.get("fullName", "Officer")
+        
         # Database Insertion (Oracle)
         conn = get_db_connection()
         if conn:
@@ -355,7 +370,7 @@ async def officer_register_visitor(
                     visitor_seq.NEXTVAL, :full_name, :company, :purpose, :host, :phone, :address,
                     :nationality, :aadhaar, :pan,
                     :blocks, :phone_dep, :valid_from, :valid_until,
-                    'WAITING_FOR_PHOTO', 'Officer'
+                    'WAITING_FOR_PHOTO', :req_by
                 )
             """
             cursor.execute(sql, {
@@ -371,7 +386,8 @@ async def officer_register_visitor(
                 'blocks': allowedBlocks,
                 'phone_dep': phoneDeposited,
                 'valid_from': validFromDate,
-                'valid_until': validUntilDate
+                'valid_until': validUntilDate,
+                'req_by': req_by
             })
             conn.commit()
             cursor.close()
@@ -389,7 +405,8 @@ async def officer_register_visitor(
                 "purposeOfVisit": purposeOfVisit,
                 "validFromDate": validFromDate,
                 "validUntilDate": validUntilDate,
-                "status": 'WAITING_FOR_PHOTO'
+                "status": 'WAITING_FOR_PHOTO',
+                "requestedBy": req_by
             }
             MOCK_VISITORS_DB.append(mock_visitor)
             MOCK_ID_COUNTER += 1
@@ -414,10 +431,10 @@ async def get_my_visitors(token: str):
         try:
             cursor = conn.cursor()
             if role == "admin":
-                cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, PASS_VALID_FROM, PASS_VALID_UNTIL, STATUS FROM VISITORS ORDER BY ID DESC")
+                cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, PASS_VALID_FROM, PASS_VALID_UNTIL, STATUS, PHOTO_PATH FROM VISITORS ORDER BY ID DESC")
             else:
                 search_term = f"%{full_name}%"
-                cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, PASS_VALID_FROM, PASS_VALID_UNTIL, STATUS FROM VISITORS WHERE LOWER(CREATED_BY_OFFICER) LIKE LOWER(:1) ORDER BY ID DESC", [search_term])
+                cursor.execute("SELECT ID, FULL_NAME, COMPANY_NAME, HOST_NAME, PHONE_NUMBER, PURPOSE_OF_VISIT, PASS_VALID_FROM, PASS_VALID_UNTIL, STATUS, PHOTO_PATH FROM VISITORS WHERE LOWER(CREATED_BY_OFFICER) LIKE LOWER(:1) ORDER BY ID DESC", [search_term])
             rows = cursor.fetchall()
             visitors = [
                 {
@@ -429,7 +446,8 @@ async def get_my_visitors(token: str):
                     "purposeOfVisit": row[5],
                     "validFromDate": row[6],
                     "validUntilDate": row[7],
-                    "status": row[8]
+                    "status": row[8],
+                    "photoPath": os.path.basename(row[9]) if row[9] else None
                 } for row in rows
             ]
             conn.close()
@@ -484,20 +502,24 @@ class CapturePhotoRequest(BaseModel):
 
 @app.post("/api/visitors/{visitor_id}/capture_photo")
 async def capture_photo(visitor_id: str, req: CapturePhotoRequest, token: str):
-    verify_role(token, ["reception"])
-    if not req.photoBase64 or not "," in req.photoBase64:
-        raise HTTPException(status_code=400, detail="Invalid photo data")
+    try:
+        verify_role(token, ["reception"])
+        if not req.photoBase64 or not "," in req.photoBase64:
+            raise HTTPException(status_code=400, detail="Invalid photo data")
+            
+        header, encoded = req.photoBase64.split(",", 1)
+        photo_bytes = base64.b64decode(encoded)
         
-    header, encoded = req.photoBase64.split(",", 1)
-    photo_bytes = base64.b64decode(encoded)
-    
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    unique_id = uuid.uuid4().hex[:8]
-    filename = f"visitor_{visitor_id}_{timestamp}_{unique_id}.jpg"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-    
-    with open(filepath, "wb") as f:
-        f.write(photo_bytes)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"visitor_{visitor_id}_{timestamp}_{unique_id}.jpg"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        
+        with open(filepath, "wb") as f:
+            f.write(photo_bytes)
+    except Exception as e:
+        print("Crash in capture_photo top block:", traceback.format_exc())
+        return {"status": "error", "message": f"Crash: {str(e)}"}
         
     conn = get_db_connection()
     if conn:
@@ -615,172 +637,203 @@ async def capture_id(visitor_id: str, req: CaptureIDRequest, token: str):
     extracted_data["name"] = true_name # Set unconditionally
 
     try:
-        # Use globally instantiated EasyOCR for instantaneous text extraction
         raw_text_list = []
         raw_results = []
+        import re
+
+        img = cv2.imread(filepath)
+        if img is not None:
+            # 1. Resize logic: > 800px -> 800px to speed up CPU OCR
+            if img.shape[1] > 800:
+                scale = 800 / img.shape[1]
+                img = cv2.resize(img, (int(img.shape[1] * scale), int(img.shape[0] * scale)))
+            
+            # 2. Preprocessing Layer
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            eq = clahe.apply(gray)
+            blurred = cv2.GaussianBlur(eq, (3, 3), 0)
+            
+            # Note: Adaptive thresholding can sometimes be too aggressive for EasyOCR on unevenly lit webcam images.
+            # We'll use the CLAHE enhanced grayscale image to ensure maximum text preservation.
+            img_to_ocr = eq
+        else:
+            img_to_ocr = filepath
+
         if GLOBAL_EASYOCR_READER:
-            raw_results = GLOBAL_EASYOCR_READER.readtext(filepath, detail=1)
-            raw_text_list = [r[1] for r in raw_results]
+            try:
+                # EasyOCR inference
+                res = GLOBAL_EASYOCR_READER.readtext(img_to_ocr if img is not None else filepath, detail=1)
+                # EasyOCR returns: [([[x,y],[x,y],[x,y],[x,y]], text, prob), ...]
+                if res:
+                    raw_results = res
+            except Exception as e:
+                print(f"Error during EasyOCR inference: {e}")
+                raw_results = []
         else:
             if req.rawText:
                 raw_text_list = [line.strip() for line in req.rawText.split('\n') if line.strip()]
-                raw_results = [([[0, i*20], [100, i*20], [100, i*20+20], [0, i*20+20]], txt, 0.9) for i, txt in enumerate(raw_text_list)]
-        
-        upper_text = " \n ".join([txt.upper() for txt in raw_text_list])
-        
+                raw_results = [([[0, i*20], [100, i*20], [100, i*20+20], [0, i*20+20]], (txt, 0.9)) for i, txt in enumerate(raw_text_list)]
+
         def get_center_y(bbox):
             if not isinstance(bbox, list) or len(bbox) == 0: return 0.0
             try: return sum([pt[1] for pt in bbox]) / len(bbox)
             except: return 0.0
-        
+
         def get_center_x(bbox):
             if not isinstance(bbox, list) or len(bbox) == 0: return 0.0
             try: return sum([pt[0] for pt in bbox]) / len(bbox)
             except: return 0.0
 
-        # Sort spatially top-to-bottom!
+        # Sort spatially top-to-bottom
         raw_results.sort(key=lambda x: (get_center_y(x[0]), get_center_x(x[0])))
 
         clean_data = []
-        import re
-        for bbox, text, prob in raw_results:
+        for item in raw_results:
+            if not item: continue
+            # PaddleOCR returns (bbox, (text, prob))
+            if len(item) == 2 and isinstance(item[1], tuple):
+                bbox = item[0]
+                text, prob = item[1]
+            elif len(item) == 3: # Fallback format
+                bbox, text, prob = item
+            else:
+                continue
+
             cleaned = re.sub(r'[^a-zA-Z0-9\s/.,:-]', '', text).strip()
+            cleaned = re.sub(r'\s+', ' ', cleaned)
             if len(cleaned) >= 2 and prob > 0.05:
                 clean_data.append({
                     "text": cleaned,
                     "upper": cleaned.upper(),
                     "y": get_center_y(bbox),
+                    "x": get_center_x(bbox),
                     "bbox": bbox
                 })
+
+        upper_text = " \n ".join([d["upper"] for d in clean_data])
         
-        # Fast document classification
-        is_aadhaar = bool(re.search(r'AADHA|UNIQUE|UVIIOUE|MERA\s*AAD|GOVERNMENT|GOVT\s*OF\s*INDIA|TOENDI|TOFNDI|NDLA', upper_text))
-        is_pan = bool(re.search(r'INCOME|TAX|PERMANENT|ACCOUNT|INCOHE|JAX|DEPART|DIPART|4OuI', upper_text))
-        is_passport = bool(re.search(r'PASSPORT|REPUBLIC', upper_text))
-        is_dl = bool(re.search(r'DRIVING|LICENCE|LICENSE|AUTHORISATION|TRANSPORT', upper_text))
-        is_voter = bool(re.search(r'ELECTION|COMMISSION|EPIC|ELECTOR|FACSIMILE|COMMI', upper_text))
-        
-        if is_pan and is_aadhaar:
-            if "ACCOUNT" in upper_text or "INCOME" in upper_text or "TAX" in upper_text: is_aadhaar = False
-            else: is_pan = False
-            
+        # 3. Document Type Detection
         doc_type = "Unknown"
-        if is_pan: doc_type = "PAN Card"
-        elif is_aadhaar: doc_type = "Aadhaar"
-        elif is_voter: doc_type = "Voter ID"
-        elif is_dl: doc_type = "Driving License"
+        is_aadhaar = bool(re.search(r'AADHA|UNIQUE|GOVERNMENT\s*OF\s*INDIA', upper_text)) and bool(re.search(r'\b\d{4}\s?\d{4}\s?\d{4}\b', upper_text))
+        is_pan = bool(re.search(r'\b[A-Z]{5}[0-9]{4}[A-Z]\b', upper_text)) and bool(re.search(r'INCOME|TAX|PERMANENT|ACCOUNT', upper_text))
+        is_passport = bool(re.search(r'PASSPORT|REPUBLIC\s*OF\s*INDIA', upper_text))
+        
+        if is_aadhaar: doc_type = "Aadhaar"
+        elif is_pan: doc_type = "PAN Card"
         elif is_passport: doc_type = "Passport"
         else:
-            # Safe fallbacks if classification is ambiguous
-            if re.search(r'\b([A-Z]{5}[0-9]{4}[A-Z])\b', upper_text): doc_type = "PAN Card"
-            elif re.search(r'\b(\d{4}[\s-]?\d{4}[\s-]?\d{4})\b', upper_text): doc_type = "Aadhaar"
-            elif re.search(r'\b([A-Z]{2}[-\s]?[0-9]{2}[-\s]?[0-9]{4,11})\b', upper_text): doc_type = "Driving License"
+            if re.search(r'\b[A-Z]{5}[0-9]{4}[A-Z]\b', upper_text): doc_type = "PAN Card"
+            elif re.search(r'\b\d{4}\s?\d{4}\s?\d{4}\b', upper_text): doc_type = "Aadhaar"
 
         extracted_data["id_type"] = doc_type
 
-        # Dispatch exactly to openbharatocr modules
-        try:
-            if doc_type == "PAN Card" and GLOBAL_PAN_EXTRACTOR:
-                res = GLOBAL_PAN_EXTRACTOR.extract_pan_details(filepath)
-                extracted_data["name"] = res.get("name", "")
-                # Normalize names and remove extra spaces
-                if extracted_data["name"]: extracted_data["name"] = " ".join(extracted_data["name"].split())
-                extracted_data["id_number"] = res.get("pan_number", "")
-                extracted_data["dob"] = res.get("date_of_birth", "")
-            elif doc_type == "Aadhaar" and GLOBAL_AADHAAR_EXTRACTOR:
-                res = GLOBAL_AADHAAR_EXTRACTOR.extract_front_details(filepath)
-                extracted_data["name"] = res.get("Full Name", "")
-                if extracted_data["name"]: extracted_data["name"] = " ".join(extracted_data["name"].split())
-                extracted_data["id_number"] = res.get("Aadhaar Number", "")
-                extracted_data["dob"] = res.get("Date of Birth", "")
-            elif doc_type == "Driving License" and openbharatocr:
-                res = driving_licence(filepath)
-                extracted_data["name"] = res.get("name", "")
-                extracted_data["id_number"] = res.get("licence_number", "")
-                extracted_data["dob"] = res.get("dates", {}).get("dob", "")
-            elif doc_type == "Passport" and openbharatocr:
-                res = passport(filepath)
-                first_name = res.get("Given Name", res.get("Name", ""))
-                last_name = res.get("Surname", "")
-                extracted_data["name"] = f"{first_name} {last_name}".strip()
-                extracted_data["id_number"] = res.get("Passport Number", "")
-                extracted_data["dob"] = res.get("Date of Birth", "")
-            elif doc_type == "Voter ID" and openbharatocr:
-                res = voter_id_front(filepath)
-                extracted_data["name"] = res.get("Name", "")
-                extracted_data["id_number"] = res.get("Voter ID Number", "")
-                extracted_data["dob"] = res.get("Date of Birth", "")
-        except Exception as e:
-            print("OpenBharatOCR extractor failed:", e)
+        # 4. Keyword-Based Spatial Extraction
+        extracted_name = ""
+        extracted_id = ""
+        extracted_dob = ""
 
-        # Cleanup whitespace
-        extracted_data["name"] = extracted_data["name"].strip() if extracted_data["name"] else ""
-        extracted_data["id_number"] = extracted_data["id_number"].strip() if extracted_data["id_number"] else ""
+        # Global DOB fallback
+        dob_match = re.search(r'\b(\d{2}[/.-]\d{2}[/.-]\d{4})\b', upper_text)
+        if dob_match: extracted_dob = dob_match.group(1)
 
-        # Re-apply fallbacks via Regex if OCR module returns empty (e.g., blurry image)
-        if not extracted_data["id_number"] or not extracted_data["id_number"].strip():
-            if doc_type == "PAN Card": m = re.search(r'\b([A-Z]{5}[0-9]{4}[A-Z])\b', upper_text); extracted_data["id_number"] = m.group(1) if m else ""
-            elif doc_type == "Aadhaar": m = re.search(r'\b(\d{4}[\s-]?\d{4}[\s-]?\d{4})\b', upper_text); extracted_data["id_number"] = m.group(1) if m else ""
-            elif doc_type == "Driving License": m = re.search(r'\b([A-Z]{2}[-\s]?[0-9]{2}[-\s]?[0-9]{4,11})\b', upper_text); extracted_data["id_number"] = m.group(1) if m else ""
+        if doc_type == "Aadhaar":
+            m = re.search(r'\b(\d{4}[\s-]?\d{4}[\s-]?\d{4})\b', upper_text)
+            if m: extracted_id = m.group(1)
             
-        if not extracted_data["dob"]:
-            dob_match = re.search(r'\b(\d{2}[/.-]\d{2}[/.-]\d{4})\b', upper_text)
-            if dob_match: extracted_data["dob"] = dob_match.group(1)
+            anchor_y = 9999
+            for d in clean_data:
+                if re.search(r'\bDOB\b|YEAR\s*OF\s*BIRTH|YOB', d["upper"]):
+                    anchor_y = d["y"]
+                    if not extracted_dob:
+                        dm = re.search(r'\b(\d{4})\b', d["upper"])
+                        if dm: extracted_dob = dm.group(1)
+                    break
+            
+            # Find nearest text above DOB
+            candidates = [d for d in clean_data if d["y"] < anchor_y - 10]
+            candidates.sort(key=lambda x: anchor_y - x["y"]) # Ascending distance from anchor upwards
+            for c in candidates:
+                if not re.search(r'GOVERNMENT|INDIA|FATHER|NAME', c["upper"]):
+                    if sum(ch.isalpha() for ch in c["text"]) >= 3:
+                        extracted_name = c["text"].title()
+                        break
+                        
+        elif doc_type == "PAN Card":
+            m = re.search(r'\b([A-Z]{5}[0-9]{4}[A-Z])\b', upper_text)
+            if m: extracted_id = m.group(1)
+            
+            anchor_y = -1
+            for d in clean_data:
+                if re.search(r'\bNAME\b', d["upper"]) and not re.search(r'FATHER', d["upper"]):
+                    anchor_y = d["y"]
+                    break
+            
+            if anchor_y != -1:
+                # Find nearest text below Name
+                candidates = [d for d in clean_data if d["y"] > anchor_y + 10]
+                candidates.sort(key=lambda x: x["y"] - anchor_y) # Ascending distance from anchor downwards
+                for c in candidates:
+                    if sum(ch.isalpha() for ch in c["text"]) >= 3:
+                        extracted_name = c["text"].title()
+                        break
+
+        elif doc_type == "Passport":
+            m = re.search(r'\b([A-Z][0-9]{7})\b', upper_text)
+            if m: extracted_id = m.group(1)
+            
+            anchor_y = -1
+            for d in clean_data:
+                if re.search(r'GIVEN\s*NAME|SURNAME|NAME', d["upper"]):
+                    anchor_y = d["y"]
+                    break
+            if anchor_y != -1:
+                candidates = [d for d in clean_data if d["y"] > anchor_y + 10]
+                candidates.sort(key=lambda x: x["y"] - anchor_y)
+                if candidates:
+                    extracted_name = candidates[0]["text"].title()
 
         # Enforce True Name fallback for pre-registered users so OCR doesn't ruin it
         if true_name:
             extracted_data["name"] = true_name
-        elif not extracted_data["name"] or extracted_data["name"].strip() == "":
-            # Spatial-Aware Multi-Pass Name Extraction Fallback
-            extracted_name = ""
-            stop_words = [
-                'GOVT', 'GOVERNMENT', 'AUTHORITY', 'DEPARTMENT', 'INDIA', 'INCOME', 'TAX', 
-                'ELECTION', 'COMMISSION', 'FATHER', 'HUSBAND', 'DOB', 'DATE', 'CARD', 
-                'SIGNATURE', 'ACCOUNT', 'IDENTIFICATION', 'NAME', 'PERMANENT', 'DIRECTOR',
-                'REPUBLIC', 'UNIQUE', 'OF', 'TAX', 'MERA', 'AADHAAR', 'EPIC',
-                'GENDER', 'MALE', 'FEMALE', 'YEAR', 'BIRTH', 'VID'
-            ]
-            header_y_limit = 0.0
-            dob_y_limit = 9999.0
-            
-            for item in clean_data:
-                if any(h in item["upper"] for h in ['GOVERNMENT', 'TOFNDI', 'INCOME', 'DIPART', 'TAX']):
-                    if item["y"] > header_y_limit: header_y_limit = item["y"]
-                if item["upper"] == extracted_data["dob"] or re.search(r'\d{2}/\d{2}', item["text"]):
-                    if item["y"] < dob_y_limit: dob_y_limit = item["y"]
-                    
-            candidate_names = []
-            for item in clean_data:
-                ln = item["text"]; ln_up = item["upper"]; y_pos = item["y"]
-                match = re.search(r'\bNAME\s*[:-]\s*([A-Za-z\s.]+)', ln_up)
-                if match:
-                    possible = match.group(1).strip()
-                    if len(possible) > 3 and possible not in stop_words:
-                        extracted_name = possible.title()
-                        break
-                if ln_up == doc_type.upper() or ln_up == extracted_data["dob"] or ln_up.replace(" ", "") == extracted_data["id_number"]: continue
-                if any(sw in ln_up.split() for sw in stop_words): continue
-                if header_y_limit > 0 and dob_y_limit < 9999.0:
-                    if y_pos <= header_y_limit or y_pos >= dob_y_limit: continue
-                alpha_chars = sum(c.isalpha() for c in ln)
-                if alpha_chars >= 4 and (alpha_chars / len(ln)) > 0.4:
-                    cand_clean = re.sub(r'[^a-zA-Z\s]', '', ln).strip()
-                    if len(cand_clean) >= 4 and len(cand_clean.split()) <= 4:
-                        candidate_names.append(cand_clean)
-                        
-            if not extracted_name and candidate_names:
-                for cand in candidate_names:
-                    if cand.lower() not in ["india", "govt of", "shri", "kumari", "smt", "smt.", "mr", "mrs"]:
-                        extracted_name = cand.title()
-                        break
+        else:
+            if not extracted_name:
+                # Heuristic Fallback for unknown document types or missed specific anchors
+                header_keywords = ['GOVERNMENT', 'TOFNDI', 'INCOME', 'DIPART', 'TAX', 'GOVT', 'INDIA', 'INCO', 'KAX', 'DEPASINENT', 'ENDLA', 'OFINDL', 'INDLA', 'OMNZT']
+                header_y_limit = 0.0
+                for item in clean_data:
+                    if any(h in item["upper"] for h in header_keywords):
+                        if item["y"] > header_y_limit: 
+                            header_y_limit = item["y"]
+                
+                candidate_names = []
+                for item in clean_data:
+                    ln = item["text"]; y_pos = item["y"]
+                    if header_y_limit > 0 and y_pos <= header_y_limit:
+                        continue
+                    alpha_chars = sum(c.isalpha() for c in ln)
+                    if len(ln) > 0 and alpha_chars >= 3 and (alpha_chars / len(ln)) > 0.5:
+                        cand_clean = re.sub(r'[^a-zA-Z\s]', '', ln).strip()
+                        words = cand_clean.split()
+                        if 1 <= len(words) <= 4 and len(cand_clean) > 3:
+                            score = 0
+                            if len(words) in [2, 3]: score += 5
+                            if all(len(w) >= 2 for w in words): score += 3
+                            if len(cand_clean) < 4: score -= 2
+                            if cand_clean.istitle() or cand_clean.isupper(): score += 2
+                            if score >= 3:
+                                candidate_names.append((score, cand_clean, y_pos))
+                if candidate_names:
+                    candidate_names.sort(key=lambda x: (-x[0], x[2]))
+                    extracted_name = candidate_names[0][1].title()
 
             extracted_data["name"] = extracted_name if extracted_name else "Name Extraction Failed"
+            
+        extracted_data["id_number"] = extracted_id if extracted_id else "MANUAL_ENTRY_REQUIRED"
+        extracted_data["dob"] = extracted_dob
+        
+        extracted_data["id_number"] = extracted_data["id_number"].replace("-", "").replace(" ", "")
 
-        if not extracted_data["id_number"]:
-             extracted_data["id_number"] = "MANUAL_ENTRY_REQUIRED"
-        else:
-             extracted_data["id_number"] = extracted_data["id_number"].replace("-", "").replace(" ", "")
-             
     except Exception as e:
         print(f"Error extracting OCR data: {e}")
         import traceback
@@ -951,66 +1004,46 @@ class RecognizeFaceRequest(BaseModel):
 # Utility for offline face comparison using OpenCV LBPH Face Recognizer
 def compare_faces(base64_img1: str, base64_img2: str) -> float:
     try:
-        # Decode base64 strings to bytes
-        def decode_base64_to_cv2(b64_str):
+        from deepface import DeepFace
+        import numpy as np
+        
+        # Decode base64 strings to numpy arrays for deepface
+        def b64_to_numpy(b64_str):
             if ',' in b64_str:
                 b64_str = b64_str.split(',')[1]
             b64_str += "=" * ((4 - len(b64_str) % 4) % 4)
             img_data = base64.b64decode(b64_str)
             nparr = np.frombuffer(img_data, np.uint8)
-            # Read directly as grayscale for face recognition
-            img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             return img
 
-        img1 = decode_base64_to_cv2(base64_img1)
-        img2 = decode_base64_to_cv2(base64_img2)
+        img1 = b64_to_numpy(base64_img1)
+        img2 = b64_to_numpy(base64_img2)
 
         if img1 is None or img2 is None:
             return 0.0
 
-        # Detect faces using Haar Cascade
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces1 = face_cascade.detectMultiScale(img1, scaleFactor=1.1, minNeighbors=4)
-        faces2 = face_cascade.detectMultiScale(img2, scaleFactor=1.1, minNeighbors=4)
+        # Perform deepface verification
+        # Using Facenet which is highly accurate for production environments
+        result = DeepFace.verify(
+            img1_path=img1, 
+            img2_path=img2, 
+            model_name="Facenet", 
+            detector_backend="opencv",
+            enforce_detection=False # Do not crash if no face detected
+        )
 
-        # Helper to crop the detected face, or fallback to central crop
-        def get_face_crop(img, faces):
-            if len(faces) == 0:
-                h, w = img.shape
-                # Fallback to center 50%
-                return img[int(h*0.25):int(h*0.75), int(w*0.25):int(w*0.75)]
-            
-            # Use the largest face found
-            faces = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)
-            x, y, w, h = faces[0]
-            # Add slight padding
-            pad = int(w * 0.1)
-            y1, y2 = max(0, y - pad), min(img.shape[0], y + h + pad)
-            x1, x2 = max(0, x - pad), min(img.shape[1], x + w + pad)
-            return img[y1:y2, x1:x2]
+        if result.get("verified", False):
+            # Distance 0 -> 1.0 similarity. Distance threshold is typically 0.40
+            distance = result.get("distance", 0.4)
+            similarity = max(0.0, 1.0 - (distance / 1.0)) # normalize 0-1
+            # Adjust the similarity so it returns a high confidence score for frontend (>0.5)
+            # Since verified is true, we map it above 0.70
+            final_similarity = 0.70 + (0.30 * similarity)
+            return final_similarity
+        else:
+            return 0.0
 
-        face1_crop = get_face_crop(img1, faces1)
-        face2_crop = get_face_crop(img2, faces2)
-
-        # Resize for consistent LBPH grid
-        face1_resized = cv2.resize(face1_crop, (150, 150))
-        face2_resized = cv2.resize(face2_crop, (150, 150))
-
-        # Train an LBPH recognizer on the registered face (img2)
-        recognizer = cv2.face.LBPHFaceRecognizer_create()
-        # Train with label 1
-        recognizer.train([face2_resized], np.array([1]))
-        
-        # Predict the scanned face (img1)
-        label, confidence_dist = recognizer.predict(face1_resized)
-        
-        # In LBPH, lower confidence = better match (it is a distance metric). 
-        # Typically < 50 is a solid match. > 80 is different person.
-        # We convert distance to a similarity score 0.0 to 1.0
-        # If distance is > 100, similarity is 0. 
-        similarity = max(0.0, 1.0 - (confidence_dist / 100.0))
-        
-        return similarity
     except Exception as e:
         print(f"Face comparison error: {e}")
         return 0.0

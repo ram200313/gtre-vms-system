@@ -654,7 +654,8 @@
             grid.innerHTML = '<p><i class="fa-solid fa-spinner fa-spin"></i> Searching...</p>';
 
             try {
-                const data = await fetchAPI(`/api/visitors/search?q=${encodeURIComponent(q)}`);
+                const token = sessionStorage.getItem('systemToken');
+                const data = await fetchAPI(`/api/visitors/search?q=${encodeURIComponent(q)}&token=${token}`);
 
                 if (data.data && data.data.length > 0) {
                     renderSearchResults(data.data);
@@ -756,7 +757,8 @@
             btn.disabled = true;
 
             try {
-                const data = await fetchAPI(`/api/visitors/${currentVisitorId}/capture_photo`, {
+                const token = sessionStorage.getItem('systemToken');
+                const data = await fetchAPI(`/api/visitors/${currentVisitorId}/capture_photo?token=${token}`, {
                     method: 'POST',
                     body: JSON.stringify({ photoBase64: dataUrl })
                 });
@@ -911,20 +913,10 @@
             btn.disabled = true;
 
             try {
-                // Initialize Offline Tesseract.js Engine
-                btn.innerHTML = '<i class="fa-solid fa-cog fa-spin"></i> Scanning Document...';
-                const worker = await Tesseract.createWorker('eng', 1, {
-                    workerPath: '/js/tesseract/worker.min.js',
-                    corePath: '/js/tesseract/tesseract-core-simd.wasm.js',
-                    langPath: '/js/tesseract',
-                    gzip: true
-                });
-                
-                const ret = await worker.recognize(dataUrl);
-                const rawText = ret.data.text;
-                await worker.terminate();
-
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsing Extracted Data...';
+                // Backend now handles the heavy OCR processing with EasyOCR natively.
+                // We no longer need to run Tesseract.js in the browser!
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing Server-Side (Wait ~5s)...';
+                const rawText = "";
                 
                 const token = sessionStorage.getItem('systemToken');
                 const data = await fetchAPI(`/api/visitors/${currentVisitorId}/capture_id?token=${token}`, {

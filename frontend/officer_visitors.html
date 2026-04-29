@@ -82,6 +82,53 @@
             color: #D1D5DB;
         }
 
+        /* Table Styles */
+        .visitor-table-container {
+            width: 100%;
+            overflow-x: auto;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .visitor-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .visitor-table th, .visitor-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .visitor-table th {
+            background-color: #F8FAFC;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .visitor-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .visitor-table tbody tr:hover {
+            background-color: #F1F5F9;
+        }
+
+        .table-photo {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #E2E8F0;
+        }
+
         /* Modal & Form Styles */
         .modal-overlay {
             position: fixed;
@@ -355,35 +402,60 @@
             const grid = document.getElementById('approvedVisitorsGrid');
             grid.innerHTML = '';
 
+            let tableHtml = `
+            <div class="visitor-table-container">
+                <table class="visitor-table">
+                    <thead>
+                        <tr>
+                            <th>Visitor ID</th>
+                            <th>Name</th>
+                            <th>Company</th>
+                            <th>Host / Officer</th>
+                            <th>Phone</th>
+                            <th>Purpose</th>
+                            <th>Photo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
             if (visitors.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fa-solid fa-clipboard-list" style="color: var(--primary-blue);"></i>
-                        <h3>No visitors yet today!</h3>
-                        <p>Approved visitors will appear here for pass printing.</p>
-                    </div>`;
-                return;
+                tableHtml += `
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px;">
+                                <i class="fa-solid fa-clipboard-list" style="color: #D1D5DB; font-size: 48px; margin-bottom: 16px;"></i>
+                                <h3 style="color: var(--text-muted);">No visitors found!</h3>
+                                <p style="color: var(--text-muted);">No pre-registered visitors found.</p>
+                            </td>
+                        </tr>
+                `;
+            } else {
+                visitors.forEach(v => {
+                    const photoUrl = v.photoPath ? `${API_BASE_URL}/uploads/${v.photoPath}` : null;
+                    tableHtml += `
+                            <tr id="row-${v.id}">
+                                <td style="color: var(--text-muted); font-weight: 500;">#VIS-${v.id}</td>
+                                <td style="font-weight: 600; color: var(--primary-blue);">${v.fullName}</td>
+                                <td>${v.companyName || 'N/A'}</td>
+                                <td>${v.hostName}</td>
+                                <td>${v.phoneNumber}</td>
+                                <td>${v.purposeOfVisit}</td>
+                                <td>
+                                    <img src="${photoUrl}" alt="Photo" class="table-photo" onerror="this.src='https://via.placeholder.com/60?text=No+Photo'">
+                                </td>
+                            </tr>
+                    `;
+                });
             }
 
-            visitors.forEach(v => {
-                const card = document.createElement('div');
-                card.className = 'visitor-card';
-                card.id = `card-${v.id}`;
-
-                const photoUrl = `/uploads/${v.photoPath}`;
-
-                card.innerHTML = `
-                    <img src="${photoUrl}" alt="Visitor Photo" class="visitor-photo" onerror="this.src='https://via.placeholder.com/300?text=No+Photo'">
-                    <div class="visitor-details">
-                        <h4>${v.fullName}</h4>
-                        <div class="visitor-meta"><i class="fa-solid fa-building"></i> ${v.companyName || 'N/A'}</div>
-                        <div class="visitor-meta"><i class="fa-solid fa-phone"></i> ${v.phoneNumber}</div>
-                        <div class="visitor-meta"><i class="fa-solid fa-user-tie"></i> Host: ${v.hostName}</div>
-                        <div class="visitor-meta"><i class="fa-solid fa-briefcase"></i> ${v.purposeOfVisit}</div>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
+            tableHtml += `
+                    </tbody>
+                </table>
+            </div>
+            `;
+            
+            grid.innerHTML = tableHtml;
+            grid.classList.remove('grid-container');
         }
 
         function showPassModal(visitorId) {

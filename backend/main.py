@@ -1004,10 +1004,9 @@ class RecognizeFaceRequest(BaseModel):
 # Utility for offline face comparison using OpenCV LBPH Face Recognizer
 def compare_faces(base64_img1: str, base64_img2: str) -> float:
     try:
-        from deepface import DeepFace
         import numpy as np
         
-        # Decode base64 strings to numpy arrays for deepface
+        # Decode base64 strings to numpy arrays
         def b64_to_numpy(b64_str):
             if ',' in b64_str:
                 b64_str = b64_str.split(',')[1]
@@ -1023,26 +1022,40 @@ def compare_faces(base64_img1: str, base64_img2: str) -> float:
         if img1 is None or img2 is None:
             return 0.0
 
-        # Perform deepface verification
-        # Using Facenet which is highly accurate for production environments
-        result = DeepFace.verify(
-            img1_path=img1, 
-            img2_path=img2, 
-            model_name="Facenet", 
-            detector_backend="opencv",
-            enforce_detection=False # Do not crash if no face detected
-        )
+        model_dir = os.path.join(os.path.dirname(__file__), "models")
+        detector_path = os.path.join(model_dir, "face_detection_yunet_2023mar.onnx")
+        recognizer_path = os.path.join(model_dir, "face_recognition_sface_2021dec.onnx")
 
-        if result.get("verified", False):
-            # Distance 0 -> 1.0 similarity. Distance threshold is typically 0.40
-            distance = result.get("distance", 0.4)
-            similarity = max(0.0, 1.0 - (distance / 1.0)) # normalize 0-1
-            # Adjust the similarity so it returns a high confidence score for frontend (>0.5)
-            # Since verified is true, we map it above 0.70
-            final_similarity = 0.70 + (0.30 * similarity)
-            return final_similarity
-        else:
+        if not os.path.exists(detector_path) or not os.path.exists(recognizer_path):
+            print("ONNX models missing for SFace.")
             return 0.0
+
+        detector = cv2.FaceDetectorYN.create(detector_path, "", (320, 320), 0.9, 0.3, 5000)
+        recognizer = cv2.FaceRecognizerSF.create(recognizer_path, "")
+
+        def get_face_feature(img):
+            height, width, _ = img.shape
+            detector.setInputSize((width, height))
+            _, faces = detector.detect(img)
+            if faces is None or len(faces) == 0:
+                return None
+            aligned_face = recognizer.alignCrop(img, faces[0])
+            return recognizer.feature(aligned_face)
+
+        feat1 = get_face_feature(img1)
+        feat2 = get_face_feature(img2)
+
+        if feat1 is None or feat2 is None:
+            return 0.0
+
+        similarity = recognizer.match(feat1, feat2, cv2.FaceRecognizerSF_FR_COSINE)
+        
+        # SFace cosine similarity threshold is typically 0.363
+        if similarity >= 0.363:
+            mapped_sim = 0.70 + ((similarity - 0.363) / (1.0 - 0.363)) * 0.30
+            return float(mapped_sim)
+        else:
+            return float(similarity)
 
     except Exception as e:
         print(f"Face comparison error: {e}")
